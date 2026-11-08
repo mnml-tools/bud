@@ -1,0 +1,84 @@
+Zap Noncommercial Share-Alike No-AI-Cloning License 1.0
+
+Copyright (c) 2026 Zap contributors
+
+1. Scope and acceptance
+
+"Software" means the original code, documentation, and assets of Zap made
+available under this license, including modifications to them. "Licensors"
+means the copyright holders of those materials. Third-party materials remain
+subject to their own licenses. By exercising permissions granted by this
+license, you accept its conditions. Rights that applicable law grants you
+without permission are unaffected.
+
+2. Noncommercial permission
+
+Subject to all conditions below, the Licensors grant you a worldwide,
+royalty-free, nonexclusive copyright license to use, run, study, copy, modify,
+fork, and distribute the Software solely for noncommercial purposes.
+
+"Noncommercial" means not primarily intended for or directed toward commercial
+advantage, monetary compensation, or profit. You may not sell, rent, sublicense
+for a fee, monetize, or commercially host the Software or modified versions,
+or use them to provide paid services or support a profit-seeking business's
+operations. Distributing a fork for free does not make an otherwise commercial
+activity noncommercial. These restrictions apply to original and modified
+versions alike, regardless of whether this license is retained.
+
+3. Same-license sharing and source availability
+
+Every copy you distribute must include this license and preserve existing
+copyright, attribution, and legal notices. Clearly identify your modifications.
+You must license your modifications and any derivative work as a whole under
+this exact license, without additional restrictions or alternative licensing
+that permits prohibited activities. This requirement does not relicense
+independent works merely distributed alongside the Software.
+
+When distributing source, include the complete corresponding source of the
+version distributed. When distributing executable or other non-source forms,
+provide recipients with that source alongside the distribution or through a
+free, accessible download available for as long as you offer the distribution.
+Corresponding source includes modifications and the scripts and instructions
+needed to build and install that version, excluding general-purpose tools,
+system libraries, and private credentials. Private modifications need not be
+published unless distributed.
+
+4. No AI-assisted cloning
+
+You may not use the Software, including its source, documentation, assets,
+screenshots, or other protected expression, as input, reference material,
+training data, fine-tuning data, retrieval context, or prompts for an artificial
+intelligence or machine-learning system for the purpose of generating,
+reconstructing, or substantially reproducing Zap or a derivative or clone of
+it. You may not direct or enable another person or service to do so for you.
+This restriction applies to both commercial and noncommercial cloning, even
+if the resulting work would use this same license.
+
+AI assistance for understanding, testing, debugging, or maintaining a permitted
+Zap fork is allowed, provided it is not used to create a separate clone or to
+circumvent this license. No rights over unprotected ideas, general functionality,
+or independently created materials are claimed by this provision.
+
+5. Other rights
+
+No trademark rights are granted. No patent license is granted. Rights not
+expressly granted are reserved. Permission for activities outside this license
+requires a separate agreement from all relevant rights holders. Contributing
+modifications for inclusion in Zap means offering those modifications under
+this license; contributors retain their copyrights.
+
+6. Termination
+
+Your permissions under this license terminate automatically if you violate
+its conditions. Termination does not terminate the licenses of recipients who
+remain in compliance. Reinstatement requires written permission from the
+relevant rights holders.
+
+7. Disclaimer and limitation of liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED
+"AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE LICENSORS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY ARISING FROM THE SOFTWARE OR ITS USE, WHETHER IN CONTRACT, TORT,
+OR OTHERWISE.

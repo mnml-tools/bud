@@ -1,0 +1,146 @@
+name: Desktop builds
+
+on:
+  push:
+    branches: [main]
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x86_64
+            os: ubuntu-22.04
+            args: --bundles appimage
+          - platform: macos-universal
+            os: macos-26
+            args: --target universal-apple-darwin --bundles app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ${{ matrix.platform }}
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential pkg-config libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev librsvg2-dev libssl-dev \
+            libdbus-1-dev patchelf libfuse2 file xdg-utils
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Run frontend tests
+        run: npm test
+      - name: Run Tauri tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --locked --all-targets
+      - name: Generate icons from Icon Composer
+        if: runner.os == 'macOS'
+        run: npm run icons
+      - name: Generate icons from exported PNG
+        if: runner.os != 'macOS'
+        run: npm run icons:png
+      - name: Configure signed updates for releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          UPDATER_PUBLIC_KEY: ${{ secrets.TAURI_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs'
+          const config = JSON.parse(readFileSync('src-tauri/tauri.conf.json', 'utf8'))
+          if (process.env.RELEASE_TAG !== `v${config.version}`) throw new Error('Release tag must match app version')
+          if (!process.env.UPDATER_PUBLIC_KEY?.trim() || !process.env.TAURI_SIGNING_PRIVATE_KEY?.trim()) {
+            throw new Error('Configure TAURI_UPDATER_PUBLIC_KEY and TAURI_SIGNING_PRIVATE_KEY secrets before releasing')
+          }
+          config.bundle.createUpdaterArtifacts = true
+          config.plugins.updater.pubkey = process.env.UPDATER_PUBLIC_KEY.trim()
+          writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(config, null, 2))
+          NODE
+      - name: Build desktop package
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ startsWith(github.ref, 'refs/tags/v') && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ startsWith(github.ref, 'refs/tags/v') && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+        run: npm run tauri build -- --ci ${{ matrix.args }} -- --locked
+      - name: Collect AppImage
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p artifacts
+          cp src-tauri/target/release/bundle/appimage/*.AppImage artifacts/
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            cp src-tauri/target/release/bundle/appimage/*.AppImage.sig artifacts/
+          fi
+      - name: Archive macOS app
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent \
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/Bud.app \
+            artifacts/Bud-macos-universal.app.zip
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            cp src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz artifacts/
+            cp src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig artifacts/
+          fi
+      - name: Upload desktop package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bud-${{ matrix.platform }}-${{ github.sha }}
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish version release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download desktop packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: Bud-*-${{ github.sha }}
+          path: artifacts
+          merge-multiple: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate update manifest
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/create-update-manifest.mjs artifacts "$GITHUB_REPOSITORY" "$RELEASE_TAG"
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" artifacts/* --clobber
+          else
+            gh release create "$RELEASE_TAG" artifacts/* \
+              --verify-tag --title "Bud $RELEASE_TAG" --generate-notes
+          fi

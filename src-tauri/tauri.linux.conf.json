@@ -1,0 +1,15 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Bud",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 760,
+        "minHeight": 560,
+        "decorations": false
+      }
+    ]
+  }
+}

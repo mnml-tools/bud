@@ -1,23 +1,17 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "srgb:0.05794,0.67120,0.36560,1.00000",
-      "display-p3:0.24377,0.53286,0.31816,1.00000"
+      "display-p3:0.96804,0.96496,0.95419,1.00000",
+      "srgb:0.89240,0.88928,0.87991,1.00000"
     ]
   },
   "groups" : [
     {
       "layers" : [
         {
-          "image-name" : "SVG Image.svg",
-          "name" : "SVG Image",
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              0.2361733256076377,
-              0.4355350823564095
-            ]
-          }
+          "glass" : true,
+          "image-name" : "SVG Image 2.svg",
+          "name" : "SVG Image 2"
         }
       ],
       "shadow" : {

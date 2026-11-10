@@ -5,12 +5,14 @@ use tauri::Manager;
 mod commit_ai;
 mod git;
 mod releases;
+mod repository_watch;
 mod ssh_credentials;
 mod window_size;
 
 fn main() {
     ssh_credentials::handle_askpass();
     tauri::Builder::default()
+        .manage(repository_watch::RepositoryWatchers::default())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -26,6 +28,8 @@ fn main() {
             commit_ai::ai_save_settings,
             commit_ai::ai_generate_commit,
             git::git_open,
+            repository_watch::git_watch_repository,
+            repository_watch::git_unwatch_repository,
             git::git_file_action,
             git::git_commit,
             git::git_file_diff,

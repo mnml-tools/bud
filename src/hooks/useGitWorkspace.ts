@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Channel, isTauri } from '@tauri-apps/api/core'
 import type { GitRequest } from '../services/git'
 import { loadHistory, openRepository } from '../services/git'
 import type { History, Repository, SavedRepository, SshKey } from '../types/git'
@@ -38,6 +39,110 @@ export function useGitWorkspace(request: GitRequest) {
   const activeSaved = saved.find((item) => item.path === repository?.path)
   const activeKeyId = activeSaved?.keyId ?? defaultKey
   const activeKey = keys.find((key) => key.id === activeKeyId)
+  const repositoryPath = repository?.path
+  const hasOrigin = repository?.remotes.includes('origin') ?? false
+  const keyPath = activeKey?.path
+
+  useEffect(() => {
+    if (!repositoryPath || !isTauri()) return
+
+    const id = crypto.randomUUID()
+    let disposed = false
+    let pending = false
+    let refreshing = false
+    let timer: number | undefined
+    const schedule = () => {
+      if (disposed) return
+      pending = true
+      window.clearTimeout(timer)
+      timer = window.setTimeout(refreshChanges, 300)
+    }
+    const refreshChanges = async () => {
+      if (disposed || !pending) return
+      if (lock.current || refreshing) {
+        timer = window.setTimeout(refreshChanges, 500)
+        return
+      }
+
+      pending = false
+      refreshing = true
+      lock.current = true
+      setBusy('Refreshing changes')
+
+      try {
+        const repo = await openRepository(request, repositoryPath)
+        if (!disposed) setRepository(repo)
+      } catch (error) {
+        if (!disposed)
+          setError(`Unable to refresh local changes: ${String(error instanceof Error ? error.message : error)}`)
+      } finally {
+        refreshing = false
+        lock.current = false
+        setBusy('')
+        if (pending && !disposed) schedule()
+      }
+    }
+    const channel = new Channel<null>()
+    channel.onmessage = schedule
+    const subscription = request('git_watch_repository', { path: repositoryPath, id, onChange: channel })
+    subscription
+      .then(() => schedule())
+      .catch((error) => {
+        if (!disposed)
+          setError(`Unable to watch local changes: ${String(error instanceof Error ? error.message : error)}`)
+      })
+    window.addEventListener('focus', schedule)
+
+    return () => {
+      disposed = true
+      window.clearTimeout(timer)
+      window.removeEventListener('focus', schedule)
+      void subscription.then(() => request('git_unwatch_repository', { id })).catch(() => {})
+    }
+  }, [repositoryPath, request])
+
+  useEffect(() => {
+    if (!repositoryPath || !hasOrigin) return
+
+    let cancelled = false
+    const timer = window.setInterval(
+      async () => {
+        if (lock.current) return
+
+        lock.current = true
+        setBusy('Checking origin')
+
+        try {
+          await request<string>('git_remote', {
+            path: repositoryPath,
+            action: 'fetch',
+            remote: 'origin',
+            key: keyPath ?? null
+          })
+          if (cancelled) return
+
+          const repo = await openRepository(request, repositoryPath)
+          const next = await loadHistory(request, repositoryPath, limit.current)
+          if (cancelled) return
+
+          setRepository(repo)
+          setHistory(next)
+        } catch (error) {
+          if (!cancelled)
+            setError(`Automatic origin check failed: ${String(error instanceof Error ? error.message : error)}`)
+        } finally {
+          lock.current = false
+          setBusy('')
+        }
+      },
+      5 * 60 * 1000
+    )
+
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [repositoryPath, hasOrigin, keyPath, request])
 
   useEffect(() => {
     if (!notice) return

@@ -82,6 +82,7 @@ fn command(directory: Option<&Path>, key: Option<&str>) -> Result<Command, Strin
     let mut cmd = Command::new("git");
     cmd.args(["--no-pager", "-c", "color.ui=false"])
         .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_OPTIONAL_LOCKS", "0")
         .stdin(Stdio::null());
     if let Some(path) = directory {
         cmd.current_dir(path);
@@ -169,13 +170,13 @@ fn execute(cmd: Command) -> Result<String, String> {
     execute_bytes(cmd).map(|output| String::from_utf8_lossy(&output).into_owned())
 }
 
-fn git(path: &Path, args: &[&str]) -> Result<String, String> {
+pub(crate) fn git(path: &Path, args: &[&str]) -> Result<String, String> {
     let mut cmd = command(Some(path), None)?;
     cmd.args(args);
     execute(cmd)
 }
 
-fn root(path: &str) -> Result<PathBuf, String> {
+pub(crate) fn root(path: &str) -> Result<PathBuf, String> {
     let directory = std::fs::canonicalize(path)
         .map_err(|_| "Repository folder does not exist or is inaccessible.")?;
     let output = git(&directory, &["rev-parse", "--show-toplevel"])?;

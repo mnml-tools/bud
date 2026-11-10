@@ -1,3 +1,4 @@
+import { CommitDiffPanel } from './CommitDiffPanel'
 import { AuthorAvatar } from '../atoms/AuthorAvatar'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { GitCommitHorizontal, Search } from 'lucide-react'
@@ -17,6 +18,7 @@ const commitDateFormat = new Intl.DateTimeFormat(undefined, {
 
 export function CommitHistory({
   history,
+  loadDiff,
   selected,
   busy,
   onMore,
@@ -24,6 +26,7 @@ export function CommitHistory({
   githubRepo
 }: {
   history: History
+  loadDiff: (hash: string) => Promise<string>
   githubRepo?: string
   selected: string
   busy: boolean
@@ -34,6 +37,7 @@ export function CommitHistory({
   const [scroll, setScroll] = useState(0)
   const [height, setHeight] = useState(600)
   const [focused, setFocused] = useState('')
+  const [diffClosed, setDiffClosed] = useState(false)
   const viewport = useRef<HTMLDivElement>(null)
   const graph = useMemo(() => buildCommitGraph(history.commits), [history.commits])
   const graphWidth = Math.max(90, graph.reduce((width, row) => Math.max(width, row.width), 0) * 18 + 28)
@@ -64,6 +68,7 @@ export function CommitHistory({
 
   useEffect(() => {
     setFocused('')
+    setDiffClosed(false)
     const index = history.commits.findIndex((commit) => commit.hash === selected)
     if (index >= 0) viewport.current?.scrollTo({ top: Math.max(0, index * rowHeight - 100) })
   }, [selected, history.commits])
@@ -131,7 +136,10 @@ export function CommitHistory({
                     height: rowHeight,
                     gridTemplateColumns: `${graphWidth}px minmax(240px, 1fr) 150px 160px`
                   }}
-                  onClick={() => setFocused(commit.hash)}
+                  onClick={() => {
+                    setFocused(commit.hash)
+                    setDiffClosed(false)
+                  }}
                   aria-pressed={active}
                   title={`${commit.hash}\n${commit.subject}`}
                 >
@@ -171,11 +179,19 @@ export function CommitHistory({
                     />
                   </svg>
                   <span className="git-commit-message">
-                    {commit.refs && (
-                      <span className="git-ref" title={commit.refs}>
-                        {commit.refs}
-                      </span>
-                    )}
+                    {commit.refs
+                      .split(', ')
+                      .filter(Boolean)
+                      .map((ref) => (
+                        <span
+                          key={ref}
+                          className="git-ref"
+                          title={ref}
+                          style={{ color: ref.startsWith('tag: ') ? '#a17de0' : graphColors[row.color] }}
+                        >
+                          {ref}
+                        </span>
+                      ))}
                     <span>{commit.subject}</span>
                     <code>{commit.hash.slice(0, 7)}</code>
                   </span>
@@ -208,15 +224,8 @@ export function CommitHistory({
           </div>
         )}
       </div>
-      {selectedCommit && (
-        <div className="git-commit-details">
-          <strong>{selectedCommit.subject}</strong>
-          <code>{selectedCommit.hash}</code>
-          <span>
-            {selectedCommit.author} · {new Date(selectedCommit.date).toLocaleString()}
-          </span>
-          <span>Parents: {selectedCommit.parents.map((hash) => hash.slice(0, 7)).join(', ') || 'Root commit'}</span>
-        </div>
+      {selectedCommit && !diffClosed && (
+        <CommitDiffPanel commit={selectedCommit} loadDiff={loadDiff} onClose={() => setDiffClosed(true)} />
       )}
     </section>
   )

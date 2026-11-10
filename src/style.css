@@ -1050,8 +1050,7 @@ button:focus-visible {
   margin-left: auto;
 }
 .git-ref {
-  color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  border: 1px solid color-mix(in srgb, currentColor 40%, var(--border));
   padding: 1px 4px;
   font-size: 10px;
   max-width: 150px;
@@ -1079,6 +1078,35 @@ button:focus-visible {
   gap: 6px;
   font-size: 11px;
   overflow-wrap: anywhere;
+}
+.git-commit-diff-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 45%;
+  min-height: 140px;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+}
+.git-commit-diff-panel .git-commit-details {
+  border-top: 0;
+  flex-shrink: 0;
+}
+.git-commit-diff-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.git-commit-diff-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.git-diff-lines .file-heading {
+  color: var(--secondary);
+  background: var(--soft);
+  font-weight: 600;
+  border-block: 1px solid var(--border);
 }
 .git-commit-details > code {
   font: 10px var(--mono);
@@ -1486,17 +1514,21 @@ select,
   color: var(--muted);
 }
 
-.git-changes-pane {
+.git-changes-pane,
+.git-commit-diff-panel {
   --change-added: #27814a;
   --change-modified: #a37b12;
   --change-removed: #c44b46;
+}
+.git-changes-pane {
   display: flex;
   flex: 1;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
 }
-:root[data-theme='dark'] .git-changes-pane {
+:root[data-theme='dark'] .git-changes-pane,
+:root[data-theme='dark'] .git-commit-diff-panel {
   --change-added: #7bc995;
   --change-modified: #dfbd59;
   --change-removed: #ef9690;
@@ -1961,4 +1993,56 @@ html.changes-resizing * {
 .git-image-preview > span {
   color: var(--muted);
   font-size: 11px;
+}
+
+.git-diff-code {
+  color: var(--text);
+  --syntax-comment: #687469;
+  --syntax-keyword: #9148a3;
+  --syntax-string: #216c45;
+  --syntax-number: #96521c;
+  --syntax-function: #225da3;
+  --syntax-variable: #9b354b;
+}
+:root[data-theme='dark'] .git-diff-code {
+  --syntax-comment: #9ba89c;
+  --syntax-keyword: #d4a0eb;
+  --syntax-string: #a4d49a;
+  --syntax-number: #e8b783;
+  --syntax-function: #91c3ed;
+  --syntax-variable: #efa4b2;
+}
+.git-diff-code .hljs-comment,
+.git-diff-code .hljs-quote {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+.git-diff-code .hljs-keyword,
+.git-diff-code .hljs-selector-tag,
+.git-diff-code .hljs-type,
+.git-diff-code .hljs-meta {
+  color: var(--syntax-keyword);
+}
+.git-diff-code .hljs-string,
+.git-diff-code .hljs-regexp,
+.git-diff-code .hljs-selector-class,
+.git-diff-code .hljs-addition {
+  color: var(--syntax-string);
+}
+.git-diff-code .hljs-number,
+.git-diff-code .hljs-literal,
+.git-diff-code .hljs-symbol {
+  color: var(--syntax-number);
+}
+.git-diff-code .hljs-title,
+.git-diff-code .hljs-built_in,
+.git-diff-code .hljs-section {
+  color: var(--syntax-function);
+}
+.git-diff-code .hljs-attr,
+.git-diff-code .hljs-attribute,
+.git-diff-code .hljs-variable,
+.git-diff-code .hljs-tag,
+.git-diff-code .hljs-name {
+  color: var(--syntax-variable);
 }

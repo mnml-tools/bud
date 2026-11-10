@@ -83,7 +83,7 @@ export function App({ request = gitRequest }: { request?: GitRequest }) {
       footerRight={
         <>
           <ActiveIdentity workspace={workspace} onManage={() => openSettings('ssh')} />
-          <span>Bud 0.1.0</span>
+          <span>Bud 0.2.0</span>
         </>
       }
       dialogs={

@@ -28,6 +28,7 @@ export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspa
   const [push, setPush] = useState(false)
   const filterRef = useRef<HTMLInputElement>(null)
   const disabled = !!workspace.busy
+  const incomingCommits = repo.branches.find((branch) => branch.current)?.incomingCommits ?? 0
 
   useShortcut(refreshShortcut, !disabled, () => void workspace.refresh())
   useShortcut(findShortcut, true, () => filterRef.current?.focus())
@@ -71,6 +72,11 @@ export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspa
           >
             <ArrowDownToLine size={13} />
             Pull
+            {incomingCommits > 0 && (
+              <span className="git-push-badge" title={`${incomingCommits} commits to pull from origin`}>
+                {incomingCommits}
+              </span>
+            )}
           </Button>
           <Button
             disabled={disabled || !workspace.remote || repo.currentBranch === 'Detached HEAD'}

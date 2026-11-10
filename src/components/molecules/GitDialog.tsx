@@ -5,9 +5,16 @@ import { X } from 'lucide-react'
 import { isDialogBackdropClick } from '../../lib/dialog'
 import { Button } from '../atoms/Button'
 
-type Props = { title: string; eyebrow?: string; busy?: boolean; onDismiss: () => void; children: ReactNode }
+type Props = {
+  title: string
+  eyebrow?: string
+  busy?: boolean
+  className?: string
+  onDismiss: () => void
+  children: ReactNode
+}
 
-export function GitDialog({ title, eyebrow, busy = false, onDismiss, children }: Props) {
+export function GitDialog({ title, eyebrow, busy = false, className = '', onDismiss, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const id = useId()
 
@@ -22,7 +29,7 @@ export function GitDialog({ title, eyebrow, busy = false, onDismiss, children }:
   return createPortal(
     <dialog
       ref={ref}
-      className="modal git-dialog"
+      className={`modal git-dialog ${className}`}
       aria-labelledby={id}
       onClick={(event) => {
         if (!busy && isDialogBackdropClick(event)) onDismiss()

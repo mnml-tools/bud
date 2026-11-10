@@ -17,7 +17,13 @@ import { Button } from '../atoms/Button'
 type Selection = { staged: boolean; paths: string[]; focused?: string }
 type Menu = { x: number; y: number; staged: boolean; paths: string[]; trigger: HTMLButtonElement }
 
-export function RepositoryChanges({ workspace }: { workspace: GitWorkspace }) {
+export function RepositoryChanges({
+  workspace,
+  onOpenAiSettings
+}: {
+  workspace: GitWorkspace
+  onOpenAiSettings: () => void
+}) {
   const repository = workspace.repository!
   const split = useChangesSplitResize()
   const resize = useSidebarResize({
@@ -170,7 +176,7 @@ export function RepositoryChanges({ workspace }: { workspace: GitWorkspace }) {
             error={preview.path === focused && preview.staged === selection.staged ? preview.error : ''}
           />
         )}
-        <CommitForm workspace={workspace} />
+        <CommitForm workspace={workspace} onOpenAiSettings={onOpenAiSettings} />
       </div>
       {menu && (
         <ChangeContextMenu

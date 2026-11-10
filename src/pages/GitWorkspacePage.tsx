@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 import {
   ArrowDownToLine,
   CloudDownload,
@@ -11,18 +11,25 @@ import {
 } from 'lucide-react'
 import type { GitWorkspace } from '../hooks/useGitWorkspace'
 import { useShortcut } from '../hooks/useShortcut'
-import { findCommitsShortcut } from '../lib/shortcuts'
+import { findCommitsShortcut, refreshRepositoryShortcut, searchCommitsShortcut, formatShortcut } from '../lib/shortcuts'
+import { getShortcuts, subscribeShortcuts, resolveShortcut } from '../services/shortcutPreferences'
 import { Button } from '../components/atoms/Button'
 import { GitDialog } from '../components/molecules/GitDialog'
 import { GitBranchSidebar } from '../components/organisms/GitBranchSidebar'
 import { CommitHistory } from '../components/organisms/CommitHistory'
 import { RepositoryChanges } from '../components/organisms/RepositoryChanges'
 
-const refreshShortcut = { key: 'r', primary: true }
-const findShortcut = { key: 'f', primary: true }
-
-export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspace; onClone: () => void }) {
+export function GitWorkspacePage({
+  workspace,
+  onClone,
+  onOpenAiSettings
+}: {
+  workspace: GitWorkspace
+  onClone: () => void
+  onOpenAiSettings: () => void
+}) {
   const repo = workspace.repository!
+  useSyncExternalStore(subscribeShortcuts, getShortcuts)
   const [selected, setSelected] = useState('')
   const [showingChanges, setShowingChanges] = useState(false)
   const [push, setPush] = useState(false)
@@ -30,8 +37,8 @@ export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspa
   const disabled = !!workspace.busy
   const incomingCommits = repo.branches.find((branch) => branch.current)?.incomingCommits ?? 0
 
-  useShortcut(refreshShortcut, !disabled, () => void workspace.refresh())
-  useShortcut(findShortcut, true, () => filterRef.current?.focus())
+  useShortcut(refreshRepositoryShortcut, !disabled, () => void workspace.refresh())
+  useShortcut(searchCommitsShortcut, true, () => filterRef.current?.focus())
   useShortcut(findCommitsShortcut, true, () => filterRef.current?.focus())
 
   return (
@@ -96,7 +103,11 @@ export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspa
           <GitBranch size={13} />
           {repo.currentBranch}
         </span>
-        <Button disabled={disabled} title="Refresh · ⌘/Ctrl+R" onClick={() => void workspace.refresh()}>
+        <Button
+          disabled={disabled}
+          title={`Refresh · ${formatShortcut(resolveShortcut(refreshRepositoryShortcut))}`}
+          onClick={() => void workspace.refresh()}
+        >
           <RefreshCw size={13} className={disabled ? 'git-spinning' : ''} />
         </Button>
         <Button disabled={disabled} onClick={onClone} title="Clone repository">
@@ -115,7 +126,7 @@ export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspa
         />
         <div className="git-main">
           {showingChanges ? (
-            <RepositoryChanges workspace={workspace} />
+            <RepositoryChanges workspace={workspace} onOpenAiSettings={onOpenAiSettings} />
           ) : (
             <CommitHistory
               key={repo.path}

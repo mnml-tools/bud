@@ -4,6 +4,8 @@ Bud uses React with atomic UI components and a Tauri backend that invokes the in
 
 ## UI layers
 
+The header settings button opens a sidebar-based settings dialog adapted from Zap, with Themes, SSH identities, AI commit messages, Shortcuts, and Updates & about. Existing SSH and AI entry points open the corresponding section. Forms remain mounted after visiting a section so switching sections preserves unfinished edits. SSH passphrases and AI keys continue to use the native credential store; theme preferences keep their existing local storage keys. Settings opens with Command/Control+comma, and Command/Control+Shift+K opens SSH identities.
+
 - `src/components/atoms`: controls such as Button and StatusDot.
 - `src/components/molecules`: shared dialogs, appearance controls, branding, window controls, and resize handles.
 - `src/components/organisms`: repository listing, clone and SSH dialogs, branch sidebar, and commit history.

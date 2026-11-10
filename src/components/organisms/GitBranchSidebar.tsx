@@ -1,15 +1,5 @@
 import { useCallback, useState } from 'react'
-import {
-  GitBranch,
-  Cloud,
-  Search,
-  GitCommitHorizontal,
-  House,
-  ChevronDown,
-  ChevronRight,
-  Files,
-  ArrowDown
-} from 'lucide-react'
+import { GitBranch, Cloud, Search, House, ChevronDown, ChevronRight, ArrowDown } from 'lucide-react'
 import type { GitWorkspace } from '../../hooks/useGitWorkspace'
 import { ResizableSidebar } from './ResizableSidebar'
 import { Button } from '../atoms/Button'
@@ -21,13 +11,11 @@ export function GitBranchSidebar({
   workspace,
   selected,
   showingChanges,
-  onChanges,
   onSelect
 }: {
   workspace: GitWorkspace
   selected: string
   showingChanges: boolean
-  onChanges: () => void
   onSelect: (hash: string) => void
 }) {
   const [query, setQuery] = useState('')
@@ -40,14 +28,6 @@ export function GitBranchSidebar({
   return (
     <ResizableSidebar>
       <div className="git-sidebar-content">
-        <Button className="git-all-commits" aria-pressed={!showingChanges && !selected} onClick={() => onSelect('')}>
-          <GitCommitHorizontal size={13} />
-          Commit history
-        </Button>
-        <Button className="git-all-commits" aria-pressed={showingChanges} onClick={onChanges}>
-          <Files size={13} />
-          All changes ({repo.changes?.length ?? 0})
-        </Button>
         <div className="git-sidebar-title">
           <GitBranch size={14} />
           <strong>Branches</strong>

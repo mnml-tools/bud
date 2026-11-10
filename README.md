@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/assets/AppIcon.png?v=1" width="112" height="112" alt="Bud app icon">
+  <img src="src/assets/AppIcon.png?v=2" width="112" height="112" alt="Bud app icon">
 </p>
 
 <h1 align="center">Bud</h1>
@@ -189,7 +189,7 @@ The shared shortcut dispatcher ignores background commands while a dialog is ope
 
 ## App icons
 
-Edit `src-tauri/assets/AppIcon.icon` in Icon Composer, then run `npm run icons` on macOS with Xcode selected. This exports `src/assets/AppIcon.png`, regenerates desktop and mobile icon assets, and compiles the native macOS icon catalog. Other platforms use a flattened version of the default macOS appearance.
+Edit `src-tauri/assets/AppIcon.icon` in Icon Composer, then run `npm run icons` on macOS with Xcode selected. This exports a temporary PNG, regenerates desktop and mobile icon assets, and compiles the native macOS icon catalog. The temporary PNG is removed afterward; `src/assets/AppIcon.png` is left unchanged. Other platforms use a flattened version of the default macOS appearance.
 
 Run `npm run icons:mac` to compile only the native macOS icon catalog, or `npm run icons:png` to regenerate standard assets from the checked-in PNG on any platform.
 

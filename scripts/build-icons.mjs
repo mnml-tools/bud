@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
@@ -17,7 +18,7 @@ function run(command, args) {
   const result = spawnSync(command, args, { cwd: project, stdio: ['ignore', 'inherit', 'inherit'] })
 
   if (result.error) throw result.error
-  if (result.status !== 0) process.exit(result.status ?? 1)
+  if (result.status !== 0) throw new Error(`${command} failed with exit code ${result.status ?? 1}.`)
 }
 
 if (process.platform !== 'darwin') {
@@ -34,22 +35,29 @@ if (!existsSync(renderer)) {
   throw new Error('The selected Xcode does not include the Icon Composer image exporter (ictool).')
 }
 
-run(renderer, [
-  join(project, 'src-tauri/assets/AppIcon.icon'),
-  '--export-image',
-  '--output-file',
-  join(project, 'src/assets/AppIcon.png'),
-  '--platform',
-  'macOS',
-  '--rendition',
-  'Default',
-  '--width',
-  '1024',
-  '--height',
-  '1024',
-  '--scale',
-  '1'
-])
+const temporaryDirectory = mkdtempSync(join(tmpdir(), 'bud-icons-'))
+const exportedIcon = join(temporaryDirectory, 'AppIcon.png')
 
-run(process.execPath, [tauriCli, 'icon', 'src/assets/AppIcon.png'])
-run(process.execPath, ['scripts/build-macos-icon.mjs'])
+try {
+  run(renderer, [
+    join(project, 'src-tauri/assets/AppIcon.icon'),
+    '--export-image',
+    '--output-file',
+    exportedIcon,
+    '--platform',
+    'macOS',
+    '--rendition',
+    'Default',
+    '--width',
+    '1024',
+    '--height',
+    '1024',
+    '--scale',
+    '1'
+  ])
+
+  run(process.execPath, [tauriCli, 'icon', exportedIcon])
+  run(process.execPath, ['scripts/build-macos-icon.mjs'])
+} finally {
+  rmSync(temporaryDirectory, { recursive: true, force: true })
+}

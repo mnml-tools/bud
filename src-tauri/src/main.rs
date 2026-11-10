@@ -33,6 +33,7 @@ fn main() {
             git::git_file_action,
             git::git_commit,
             git::git_file_diff,
+            git::git_hunk_action,
             git::git_commit_diff,
             git::git_image_diff,
             git::git_history,

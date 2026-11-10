@@ -27,6 +27,8 @@ SSH identity overrides are scoped to the Git child process through `GIT_SSH_COMM
 
 The shared shortcut dispatcher handles platform modifiers, double Shift, input exclusions, and dialog exclusions. Native HTML dialogs provide focus trapping, Escape handling, backdrop dismissal, and focus restoration. Sidebar resizing, native window geometry, appearance persistence, unsaved-close protection, and updater safety logic are retained.
 
+Modified text files support partial staging through **Stage hunk** / **Unstage hunk** controls in All changes. The frontend sends the displayed diff and hunk index; `git_hunk_action` regenerates and checks the diff before constructing a patch from that single hunk. Git applies it to the index through stdin with `git apply --cached` (reversed for unstaging), leaving the working file untouched. Additions, deletions, renames, mode changes, conflicts, and binary files continue to use file-level actions. The commit form commits the resulting index as usual.
+
 ## Validation
 
 `npm test` covers graph topology, shared shortcuts, and updater safety. `cargo test --manifest-path src-tauri/Cargo.toml --locked` creates disposable repositories to test empty and merged histories, detached HEAD, cloning, fetching, pushing, switching branches, and SSH identity validation/quoting. `npm run build` checks TypeScript and the production bundle.

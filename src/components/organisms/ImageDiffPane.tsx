@@ -10,12 +10,13 @@ export function ImageDiffPane({ workspace, path, staged }: { workspace: GitWorks
 
   useEffect(() => {
     let cancelled = false
-    setPreview(null)
     setError('')
-    setFailed({})
     load.current(path, staged).then(
       (result) => {
-        if (!cancelled) setPreview(result)
+        if (!cancelled)
+          setPreview((previous) =>
+            previous?.before === result.before && previous?.after === result.after ? previous : result
+          )
       },
       (error) => {
         if (!cancelled) setError(String(error))

@@ -194,7 +194,7 @@ export function useGitWorkspace(request: GitRequest) {
       const message = await request<string>('git_remote', {
         path: repository.path,
         action,
-        remote,
+        remote: action === 'push' ? remote : 'origin',
         key: activeKey?.path ?? null
       })
       const repo = await openRepository(request, repository.path)

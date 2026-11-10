@@ -118,6 +118,7 @@ export function highlightDiff(diff: string, path = ''): DiffLine[] {
       language = undefined
       inHunk = false
     } else if (!inHunk && /^(---|\+\+\+) /.test(row.text)) {
+      row.className = 'metadata'
       const file = row.text.slice(4).replace(/\t.*$/, '')
       if (file !== '/dev/null') {
         let decoded = file
@@ -130,6 +131,8 @@ export function highlightDiff(diff: string, path = ''): DiffLine[] {
         }
         language = diffLanguage(decoded.replace(/^[ab]\//, ''))
       }
+    } else if (!inHunk && row.text.startsWith('index ')) {
+      row.className = 'metadata'
     } else if (row.text.startsWith('@@')) {
       row.className = 'hunk'
       inHunk = true

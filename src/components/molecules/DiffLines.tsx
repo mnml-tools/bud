@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { highlightDiff } from '../../lib/diffHighlight'
 
 export function DiffLines({ diff, path }: { diff: string; path?: string }) {
-  const lines = useMemo(() => highlightDiff(diff, path), [diff, path])
+  const lines = useMemo(() => highlightDiff(diff, path).filter((line) => line.className !== 'metadata'), [diff, path])
 
   return (
     <pre className="git-diff-lines">

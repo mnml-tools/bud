@@ -308,12 +308,26 @@ fn outgoing_count(directory: &Path, remote: &str, branch: &str) -> usize {
 
     // Push publishes the current branch to the same branch name on this remote.
     let target = format!("refs/remotes/{remote}/{branch}");
-    let range = if git(directory, &["rev-parse", "--verify", &target]).is_ok() {
-        format!("{target}..HEAD")
+    let output = if git(directory, &["rev-parse", "--verify", &target]).is_ok() {
+        git(
+            directory,
+            &["rev-list", "--count", &format!("{target}..HEAD"), "--"],
+        )
     } else {
-        "HEAD".into()
+        // A new branch may share its entire history with other branches on the remote.
+        git(
+            directory,
+            &[
+                "rev-list",
+                "--count",
+                "HEAD",
+                "--not",
+                &format!("--remotes={remote}/*"),
+                "--",
+            ],
+        )
     };
-    git(directory, &["rev-list", "--count", &range, "--"])
+    output
         .ok()
         .and_then(|value| value.trim().parse().ok())
         .unwrap_or(0)
@@ -920,8 +934,10 @@ mod tests {
         assert_eq!(outgoing_count(&temp, "origin", "main"), 1);
         git(&temp, &["update-ref", "refs/remotes/origin/main", "HEAD"]).unwrap();
         assert_eq!(outgoing_count(&temp, "origin", "main"), 0);
+        assert_eq!(outgoing_count(&temp, "origin", "new-feature"), 0);
         git(&temp, &["commit", "--allow-empty", "-m", "Second"]).unwrap();
         assert_eq!(outgoing_count(&temp, "origin", "main"), 1);
+        assert_eq!(outgoing_count(&temp, "origin", "new-feature"), 1);
         assert_eq!(outgoing_count(&temp, "other", "main"), 2);
         assert_eq!(outgoing_count(&temp, "origin", "Detached HEAD"), 0);
         std::fs::remove_dir_all(temp).unwrap();
@@ -1374,6 +1390,24 @@ mod tests {
         )
         .unwrap();
         git(upstream_directory, &["push", "origin", "main"]).unwrap();
+        let head_before_fetch = git(directory, &["rev-parse", "HEAD"]).unwrap();
+        git_remote(repo.path.clone(), "fetch".into(), "origin".into(), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            git(directory, &["rev-parse", "HEAD"]).unwrap(),
+            head_before_fetch
+        );
+        let fetched = inspect(&repo.path).unwrap();
+        assert_eq!(
+            fetched
+                .branches
+                .iter()
+                .find(|branch| branch.current)
+                .unwrap()
+                .incoming_commits,
+            1
+        );
         git_remote(repo.path.clone(), "pull".into(), "origin".into(), None)
             .await
             .unwrap();

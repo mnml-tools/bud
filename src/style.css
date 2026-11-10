@@ -850,7 +850,7 @@ button:focus-visible {
   height: 100%;
 }
 .git-sidebar-title {
-  margin-top: 18px;
+  margin-top: 4px;
   display: flex;
   gap: 6px;
   align-items: center;
@@ -884,14 +884,32 @@ button:focus-visible {
 .git-history-search:focus-within {
   border-color: var(--control-border);
 }
-.git-all-commits {
-  width: 100%;
-  justify-content: flex-start;
-  border-color: transparent;
-  background: transparent;
+.git-view-switch {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+  flex-shrink: 0;
+  padding: 2px;
+  margin-right: 10px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--soft);
 }
-.git-all-commits[aria-pressed='true'] {
-  background: var(--selected);
+.git-view-switch > button {
+  font-weight: 600;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--secondary);
+  box-shadow: none;
+}
+.git-view-switch > button:hover {
+  background: var(--hover);
+}
+.git-view-switch > button[aria-pressed='true'] {
+  color: var(--text);
+  background: var(--neutral-selected);
+  font-weight: 600;
 }
 .git-branch-group {
   margin-top: 12px;
@@ -914,6 +932,9 @@ button:focus-visible {
   display: flex;
   align-items: center;
   min-width: 0;
+}
+.git-branch-row.current {
+  background: var(--neutral-selected);
 }
 .git-branch-row > button:first-child {
   border: 0;
@@ -1103,10 +1124,18 @@ button:focus-visible {
   overflow: auto;
 }
 .git-diff-lines .file-heading {
-  color: var(--secondary);
-  background: var(--soft);
+  color: var(--text);
+  background: var(--neutral-selected);
+  padding: 8px 12px;
   font-weight: 600;
-  border-block: 1px solid var(--border);
+  border-block: 1px solid var(--control-border);
+  border-left: 3px solid var(--indicator);
+}
+.git-diff-lines .file-heading:not(:first-child) {
+  margin-top: 24px;
+}
+.git-diff-lines > div:has(+ .file-heading) {
+  border-bottom: 1px solid var(--border);
 }
 .git-commit-details > code {
   font: 10px var(--mono);
@@ -1934,6 +1963,10 @@ html.changes-resizing * {
   font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+}
+.git-push-badge.neutral {
+  background: var(--hover-strong);
+  color: var(--secondary);
 }
 
 .git-branch-incoming {

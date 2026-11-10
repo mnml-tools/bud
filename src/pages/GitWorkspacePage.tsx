@@ -1,5 +1,14 @@
 import { useRef, useState } from 'react'
-import { ArrowDownToLine, ArrowUpFromLine, GitBranch, GitFork, RefreshCw } from 'lucide-react'
+import {
+  ArrowDownToLine,
+  CloudDownload,
+  ArrowUpFromLine,
+  GitBranch,
+  GitFork,
+  RefreshCw,
+  GitCommitHorizontal,
+  Files
+} from 'lucide-react'
 import type { GitWorkspace } from '../hooks/useGitWorkspace'
 import { useShortcut } from '../hooks/useShortcut'
 import { findCommitsShortcut } from '../lib/shortcuts'
@@ -27,14 +36,37 @@ export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspa
   return (
     <>
       <div className="git-toolbar">
+        <div className="git-view-switch" role="group" aria-label="Repository view">
+          <Button
+            aria-pressed={!showingChanges}
+            onClick={() => {
+              setShowingChanges(false)
+              setSelected('')
+            }}
+          >
+            <GitCommitHorizontal size={13} />
+            Commit history
+          </Button>
+          <Button aria-pressed={showingChanges} onClick={() => setShowingChanges(true)}>
+            <Files size={13} />
+            All changes
+            <span className={`git-push-badge${repo.changes?.length ? '' : ' neutral'}`}>
+              {repo.changes?.length ?? 0}
+            </span>
+          </Button>
+        </div>
         <div className="git-remote-actions">
-          <Button disabled={disabled || !workspace.remote} onClick={() => void workspace.remoteAction('fetch')}>
-            <ArrowDownToLine size={13} />
+          <Button
+            disabled={disabled || !repo.remotes.includes('origin')}
+            title="Check origin for updates without changing local files"
+            onClick={() => void workspace.remoteAction('fetch')}
+          >
+            <CloudDownload size={13} />
             Fetch
           </Button>
           <Button
-            disabled={disabled || !workspace.remote || repo.currentBranch === 'Detached HEAD'}
-            title="Pull current branch (fast-forward only)"
+            disabled={disabled || !repo.remotes.includes('origin') || repo.currentBranch === 'Detached HEAD'}
+            title="Apply changes from origin to the current branch (fast-forward only)"
             onClick={() => void workspace.remoteAction('pull')}
           >
             <ArrowDownToLine size={13} />
@@ -70,7 +102,6 @@ export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspa
           workspace={workspace}
           selected={selected}
           showingChanges={showingChanges}
-          onChanges={() => setShowingChanges(true)}
           onSelect={(hash) => {
             setShowingChanges(false)
             setSelected(hash)

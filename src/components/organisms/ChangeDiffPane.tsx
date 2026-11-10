@@ -5,16 +5,26 @@ export function ChangeDiffPane({
   staged,
   diff,
   loading,
-  error
+  error,
+  busy,
+  onHunkAction
 }: {
   path?: string
   staged: boolean
   diff: string
   loading: boolean
   error: string
+  busy: boolean
+  onHunkAction: (hunk: number) => void
 }) {
   const lines = diff.split('\n')
   const firstHunk = lines.findIndex((line) => line.startsWith('@@'))
+  const canStageHunks =
+    firstHunk >= 0 &&
+    diff.startsWith('diff --git ') &&
+    !lines
+      .slice(0, firstHunk)
+      .some((line) => /^(?:new file mode |deleted file mode |old mode |new mode |rename |copy )/.test(line))
   const visibleLines =
     firstHunk >= 0
       ? lines.slice(firstHunk)
@@ -42,7 +52,24 @@ export function ChangeDiffPane({
               {error}
             </p>
           ) : visibleLines.some((line) => line.trim()) ? (
-            <DiffLines diff={visibleLines.join('\n')} path={path} />
+            <>
+              <p className="git-hunk-hint">
+                {canStageHunks
+                  ? staged
+                    ? 'Unstage individual changes below to leave them out of the commit.'
+                    : 'Stage individual changes below, then commit the staged changes.'
+                  : 'Use the file action to stage or unstage this file.'}
+              </p>
+              <DiffLines
+                diff={visibleLines.join('\n')}
+                path={path}
+                hunkAction={
+                  canStageHunks
+                    ? { label: staged ? 'Unstage hunk' : 'Stage hunk', disabled: busy, onAction: onHunkAction }
+                    : undefined
+                }
+              />
+            </>
           ) : (
             <p className="git-diff-message">No text diff available for this file.</p>
           )}

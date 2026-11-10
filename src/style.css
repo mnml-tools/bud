@@ -2079,3 +2079,24 @@ html.changes-resizing * {
 .git-diff-code .hljs-name {
   color: var(--syntax-variable);
 }
+
+.git-hunk-hint {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--secondary);
+  border-bottom: 1px solid var(--border);
+}
+.git-diff-lines .hunk:has(.git-hunk-action) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 4px;
+}
+.git-hunk-action {
+  font: 10px var(--mono);
+  min-height: 22px;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}

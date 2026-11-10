@@ -60,10 +60,23 @@ export function RepositoryChanges({ workspace }: { workspace: GitWorkspace }) {
       return
     }
 
-    setPreview({ diff: '', error: '', loading: true, path: focused, staged: selection.staged })
+    setPreview((previous) =>
+      previous.path === focused && previous.staged === selection.staged
+        ? previous
+        : { diff: '', error: '', loading: true, path: focused, staged: selection.staged }
+    )
     diffRequest.current(focused, selection.staged).then(
       (diff) => {
-        if (!cancelled) setPreview({ diff, error: '', loading: false, path: focused, staged: selection.staged })
+        if (!cancelled)
+          setPreview((previous) =>
+            previous.path === focused &&
+            previous.staged === selection.staged &&
+            previous.diff === diff &&
+            !previous.error &&
+            !previous.loading
+              ? previous
+              : { diff, error: '', loading: false, path: focused, staged: selection.staged }
+          )
       },
       (error) => {
         if (!cancelled)
@@ -146,6 +159,10 @@ export function RepositoryChanges({ workspace }: { workspace: GitWorkspace }) {
           />
         ) : (
           <ChangeDiffPane
+            busy={!!workspace.busy}
+            onHunkAction={(hunk) => {
+              if (focused) void workspace.hunkAction(focused, selection.staged, hunk, preview.diff)
+            }}
             path={focused}
             staged={selection.staged}
             diff={preview.path === focused && preview.staged === selection.staged ? preview.diff : ''}

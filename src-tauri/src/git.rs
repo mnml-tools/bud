@@ -121,12 +121,23 @@ fn command(directory: Option<&Path>, key: Option<&str>) -> Result<Command, Strin
     Ok(cmd)
 }
 
-fn execute_bytes(mut cmd: Command) -> Result<Vec<u8>, String> {
+fn execute_bytes(cmd: Command) -> Result<Vec<u8>, String> {
+    execute_bytes_with_input(cmd, None)
+}
+
+fn execute_bytes_with_input(mut cmd: Command, input: Option<Vec<u8>>) -> Result<Vec<u8>, String> {
+    if input.is_some() {
+        cmd.stdin(Stdio::piped());
+    }
     // Drain both pipes concurrently so large histories cannot block the child.
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
     let mut child = cmd.spawn().map_err(|e| {
         format!("Unable to run Git. Install Git and make it available on PATH. {e}")
     })?;
+    let writer = input.map(|input| {
+        let mut stdin = child.stdin.take().unwrap();
+        std::thread::spawn(move || std::io::Write::write_all(&mut stdin, &input))
+    });
     let mut stdout = child.stdout.take().unwrap();
     let mut stderr = child.stderr.take().unwrap();
     let out = std::thread::spawn(move || {
@@ -162,6 +173,12 @@ fn execute_bytes(mut cmd: Command) -> Result<Vec<u8>, String> {
         .map_err(|e| e.to_string())?;
     if !status.success() {
         return Err(String::from_utf8_lossy(&error).trim().to_owned());
+    }
+    if let Some(writer) = writer {
+        writer
+            .join()
+            .map_err(|_| "Unable to send patch to Git")?
+            .map_err(|error| error.to_string())?;
     }
     Ok(output)
 }
@@ -585,61 +602,96 @@ pub async fn git_commit_diff(path: String, hash: String) -> Result<String, Strin
     .map_err(|e| e.to_string())?
 }
 
+fn file_diff(path: &str, file: String, staged: bool) -> Result<String, String> {
+    let directory = root(&path)?;
+    let files = selected_changes(&directory, &[file])?;
+    let file = &files[0];
+    if file.status == "??" {
+        if staged {
+            return Ok(String::new());
+        }
+        let target = directory.join(&file.path);
+        let metadata = std::fs::symlink_metadata(&target).map_err(|e| e.to_string())?;
+        if metadata.len() > 2_000_000 {
+            return Ok("File is too large to preview.".into());
+        }
+        let bytes = if metadata.file_type().is_symlink() {
+            std::fs::read_link(&target)
+                .map_err(|e| e.to_string())?
+                .to_string_lossy()
+                .as_bytes()
+                .to_vec()
+        } else {
+            std::fs::read(&target).map_err(|e| e.to_string())?
+        };
+        let Ok(content) = String::from_utf8(bytes) else {
+            return Ok("Binary file added.".into());
+        };
+        return Ok(format!(
+            "--- /dev/null\n+++ b/{}\n@@ -0,0 +1,{} @@\n{}",
+            file.path,
+            content.lines().count(),
+            content
+                .lines()
+                .map(|line| format!("+{line}\n"))
+                .collect::<String>()
+        ));
+    }
+    let mut cmd = command(Some(&directory), None)?;
+    cmd.arg("--literal-pathspecs")
+        .args(["diff", "--no-ext-diff", "--no-textconv", "--no-color"]);
+    if staged {
+        cmd.arg("--cached");
+    }
+    cmd.arg("--").arg(&file.path);
+    if let Some(original) = &file.original_path {
+        cmd.arg(original);
+    }
+    execute(cmd)
+}
+
 #[tauri::command]
 pub async fn git_file_diff(path: String, file: String, staged: bool) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || file_diff(&path, file, staged))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn git_hunk_action(
+    path: String,
+    file: String,
+    staged: bool,
+    hunk: usize,
+    expected_diff: String,
+) -> Result<Repository, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let directory = root(&path)?;
-        let files = selected_changes(&directory, &[file])?;
-        let file = &files[0];
-        if file.status == "??" {
-            if staged {
-                return Ok(String::new());
-            }
-            let target = directory.join(&file.path);
-            let metadata = std::fs::symlink_metadata(&target).map_err(|e| e.to_string())?;
-            if metadata.len() > 2_000_000 {
-                return Ok("File is too large to preview.".into());
-            }
-            let bytes = if metadata.file_type().is_symlink() {
-                std::fs::read_link(&target)
-                    .map_err(|e| e.to_string())?
-                    .to_string_lossy()
-                    .as_bytes()
-                    .to_vec()
-            } else {
-                std::fs::read(&target).map_err(|e| e.to_string())?
-            };
-            let Ok(content) = String::from_utf8(bytes) else {
-                return Ok("Binary file added.".into());
-            };
-            return Ok(format!(
-                "--- /dev/null\n+++ b/{}\n@@ -0,0 +1,{} @@\n{}",
-                file.path,
-                content.lines().count(),
-                content
-                    .lines()
-                    .map(|line| format!("+{line}\n"))
-                    .collect::<String>()
-            ));
+        let changes = selected_changes(&directory, &[file.clone()])?;
+        let change = &changes[0];
+        let status = change.status.as_bytes();
+        if status.len() != 2 || status[if staged { 0 } else { 1 }] != b'M' || status.contains(&b'U') || change.original_path.is_some() {
+            return Err("Partial staging is available for modified text files. Use the file action for additions, deletions, renames, or conflicts.".into());
         }
+        if expected_diff.len() > 2_000_000 { return Err("Diff is too large for partial staging.".into()); }
+        let current = file_diff(&path, file, staged)?;
+        if current != expected_diff { return Err("This file changed since the diff was loaded. Review the refreshed diff and retry.".into()); }
+        let lines: Vec<_> = current.split_inclusive('\n').collect();
+        let starts: Vec<_> = lines.iter().enumerate().filter_map(|(index, line)| line.starts_with("@@ ").then_some(index)).collect();
+        let start = *starts.get(hunk).ok_or("This change is no longer available. Refresh the diff.")?;
+        let header = lines[..starts[0]].concat();
+        if header.lines().any(|line| line.starts_with("old mode ") || line.starts_with("new mode ") || line.starts_with("new file mode ") || line.starts_with("deleted file mode ") || line.starts_with("rename ")) {
+            return Err("Use the file action for mode changes, additions, deletions, or renames.".into());
+        }
+        let end = starts.get(hunk + 1).copied().unwrap_or(lines.len());
+        let patch = header + &lines[start..end].concat();
         let mut cmd = command(Some(&directory), None)?;
-        cmd.arg("--literal-pathspecs").args([
-            "diff",
-            "--no-ext-diff",
-            "--no-textconv",
-            "--no-color",
-        ]);
-        if staged {
-            cmd.arg("--cached");
-        }
-        cmd.arg("--").arg(&file.path);
-        if let Some(original) = &file.original_path {
-            cmd.arg(original);
-        }
-        execute(cmd)
-    })
-    .await
-    .map_err(|e| e.to_string())?
+        cmd.args(["apply", "--cached", "--whitespace=nowarn"]);
+        if staged { cmd.arg("--reverse"); }
+        cmd.arg("-");
+        execute_bytes_with_input(cmd, Some(patch.into_bytes()))?;
+        inspect(&path)
+    }).await.map_err(|error| error.to_string())?
 }
 
 #[tauri::command]
@@ -920,6 +972,72 @@ pub async fn git_pick_path(window: tauri::Window, file: bool) -> Result<Option<S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn stages_and_unstages_hunks_without_changing_worktree() {
+        let temp = std::env::temp_dir().join(format!("bud-hunks-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+        git(&temp, &["init", "-b", "main"]).unwrap();
+        git(&temp, &["config", "user.name", "Bud Test"]).unwrap();
+        git(&temp, &["config", "user.email", "bud@example.test"]).unwrap();
+        git(&temp, &["config", "commit.gpgsign", "false"]).unwrap();
+        let original: String = (0..30).map(|line| format!("line {line}\n")).collect();
+        let target = temp.join("file with spaces.txt");
+        std::fs::write(&target, &original).unwrap();
+        git(&temp, &["add", "."]).unwrap();
+        git(&temp, &["commit", "-m", "Initial"]).unwrap();
+        let edited = original
+            .replace("line 1\n", "first edit\n")
+            .replace("line 25\n", "second edit\n");
+        std::fs::write(&target, &edited).unwrap();
+        let path = temp.to_string_lossy().into_owned();
+        let file = "file with spaces.txt".to_string();
+        let diff = file_diff(&path, file.clone(), false).unwrap();
+        assert_eq!(
+            diff.lines().filter(|line| line.starts_with("@@ ")).count(),
+            2
+        );
+        assert!(
+            git_hunk_action(path.clone(), file.clone(), false, 9, diff.clone())
+                .await
+                .is_err()
+        );
+        git_hunk_action(path.clone(), file.clone(), false, 1, diff.clone())
+            .await
+            .unwrap();
+        let index = git(&temp, &["show", ":file with spaces.txt"]).unwrap();
+        assert!(index.contains("second edit"));
+        assert!(!index.contains("first edit"));
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), edited);
+        assert!(git_hunk_action(path.clone(), file.clone(), false, 0, diff)
+            .await
+            .is_err());
+        let staged = file_diff(&path, file.clone(), true).unwrap();
+        git_hunk_action(path.clone(), file.clone(), true, 0, staged)
+            .await
+            .unwrap();
+        assert_eq!(
+            git(&temp, &["show", ":file with spaces.txt"]).unwrap(),
+            original
+        );
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), edited);
+        let refreshed = file_diff(&path, file.clone(), false).unwrap();
+        git_hunk_action(path.clone(), file, false, 0, refreshed)
+            .await
+            .unwrap();
+        git_commit(path.clone(), "First change only".into(), "".into())
+            .await
+            .unwrap();
+        let committed = git(&temp, &["show", "HEAD:file with spaces.txt"]).unwrap();
+        assert!(committed.contains("first edit"));
+        assert!(!committed.contains("second edit"));
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), edited);
+        assert!(file_diff(&path, "file with spaces.txt".into(), false)
+            .unwrap()
+            .contains("+second edit"));
+        std::fs::remove_dir_all(temp).unwrap();
+    }
 
     #[test]
     fn counts_outgoing_commits_for_new_and_existing_remote_branches() {

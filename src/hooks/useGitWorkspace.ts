@@ -67,7 +67,6 @@ export function useGitWorkspace(request: GitRequest) {
       pending = false
       refreshing = true
       lock.current = true
-      setBusy('Refreshing changes')
 
       try {
         const repo = await openRepository(request, repositoryPath)
@@ -78,7 +77,6 @@ export function useGitWorkspace(request: GitRequest) {
       } finally {
         refreshing = false
         lock.current = false
-        setBusy('')
         if (pending && !disposed) schedule()
       }
     }
@@ -360,6 +358,20 @@ export function useGitWorkspace(request: GitRequest) {
       }
     })
 
+  const hunkAction = (file: string, staged: boolean, hunk: number, expectedDiff: string) =>
+    run(staged ? 'Unstaging change' : 'Staging change', async () => {
+      if (!repository) return
+
+      try {
+        setRepository(
+          await request<Repository>('git_hunk_action', { path: repository.path, file, staged, hunk, expectedDiff })
+        )
+      } catch (error) {
+        setRepository(await openRepository(request, repository.path))
+        throw error
+      }
+    })
+
   const addKey = async (name: string, path: string, password = '') => {
     if (keys.some((key) => key.path === path)) throw new Error('This key is already registered.')
 
@@ -442,6 +454,7 @@ export function useGitWorkspace(request: GitRequest) {
     commitDiff: (hash: string) => request<string>('git_commit_diff', { path: repository!.path, hash }),
     imageDiff,
     fileAction,
+    hunkAction,
     commit,
     chooseKey,
     addKey,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { Commit } from '../../types/git'
 import { DiffLines } from '../molecules/DiffLines'
@@ -14,11 +14,13 @@ export function CommitDiffPanel({
   onClose: () => void
 }) {
   const [preview, setPreview] = useState({ diff: '', error: '', loading: true })
+  const load = useRef(loadDiff)
+  load.current = loadDiff
 
   useEffect(() => {
     let cancelled = false
     setPreview({ diff: '', error: '', loading: true })
-    loadDiff(commit.hash).then(
+    load.current(commit.hash).then(
       (diff) => {
         if (!cancelled) setPreview({ diff, error: '', loading: false })
       },
@@ -30,7 +32,7 @@ export function CommitDiffPanel({
     return () => {
       cancelled = true
     }
-  }, [commit.hash, loadDiff])
+  }, [commit.hash])
 
   return (
     <section className="git-commit-diff-panel" aria-label="Commit diffs" aria-busy={preview.loading}>

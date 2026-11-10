@@ -87,7 +87,14 @@ function fixtureRepository(path: string, empty = false): Repository {
   return value
 }
 
+let aiSettings = { enabled: false, endpoint: 'http://localhost:11434/v1', model: 'local-model' }
+
 const request: GitRequest = async <T,>(command: string, args?: Record<string, unknown>) => {
+  if (command === 'ai_settings') return { ...aiSettings } as T
+  if (command === 'ai_save_settings') {
+    aiSettings = { ...(args!.settings as typeof aiSettings) }
+    return undefined as T
+  }
   if (command === 'git_pick_path') return (args?.file ? '/tmp/bud-fixture/id_personal' : repository.path) as T
   if (command === 'git_save_key_password') {
     passwords.set(String(args!.path), !!args!.password)

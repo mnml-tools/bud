@@ -1,20 +1,26 @@
 import { useEffect, useState } from 'react'
 import type { GitRequest } from '../../services/git'
-import { GitDialog } from '../molecules/GitDialog'
 import { Button } from '../atoms/Button'
 
 export type CommitAiSettings = { enabled: boolean; endpoint: string; model: string }
 
-export function CommitAiSettingsDialog({ request, onDismiss }: { request: GitRequest; onDismiss: () => void }) {
+export function AiSettings({ request, onBusyChange }: { request: GitRequest; onBusyChange: (busy: boolean) => void }) {
   const [settings, setSettings] = useState<CommitAiSettings>({ enabled: false, endpoint: '', model: '' })
   const [apiKey, setApiKey] = useState('')
   const [replaceKey, setReplaceKey] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [saved, setSaved] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
+
+  useEffect(() => {
+    onBusyChange(saving)
+  }, [saving, onBusyChange])
 
   useEffect(() => {
     let cancelled = false
+    setError('')
 
     request<CommitAiSettings>('ai_settings').then(
       (value) => {
@@ -31,10 +37,14 @@ export function CommitAiSettingsDialog({ request, onDismiss }: { request: GitReq
     return () => {
       cancelled = true
     }
-  }, [request])
+  }, [request, loadAttempt])
 
   return (
-    <GitDialog title="AI commit messages" busy={saving} onDismiss={onDismiss}>
+    <section className="settings-section settings-ai">
+      <div>
+        <h2>AI commit messages</h2>
+        <p>Configure a provider and API key for drafting commit messages.</p>
+      </div>
       <form
         className="git-ai-settings"
         onSubmit={async (event) => {
@@ -42,10 +52,13 @@ export function CommitAiSettingsDialog({ request, onDismiss }: { request: GitReq
           event.stopPropagation()
           setSaving(true)
           setError('')
+          setSaved(false)
 
           try {
             await request('ai_save_settings', { settings, apiKey: replaceKey ? apiKey : null })
-            onDismiss()
+            setSaved(true)
+            setApiKey('')
+            setReplaceKey(false)
           } catch (error) {
             setError(String(error))
           } finally {
@@ -118,16 +131,19 @@ export function CommitAiSettingsDialog({ request, onDismiss }: { request: GitReq
         >
           Remove saved key
         </Button>
+        {saved && <p role="status">AI settings saved.</p>}
         {error && <p role="alert">{error}</p>}
-        <div className="discard-actions">
-          <Button type="button" disabled={saving} onClick={onDismiss}>
-            Cancel
+        {error && loading && (
+          <Button type="button" onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+            Retry loading settings
           </Button>
+        )}
+        <div className="discard-actions">
           <Button type="submit" className="primary" disabled={loading || saving}>
             {saving ? 'Saving…' : 'Save settings'}
           </Button>
         </div>
       </form>
-    </GitDialog>
+    </section>
   )
 }

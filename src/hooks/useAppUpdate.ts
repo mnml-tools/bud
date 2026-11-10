@@ -29,5 +29,5 @@ export function useAppUpdate() {
     setUpdate(null)
   }
 
-  return { update, dismiss }
+  return { update, dismiss, setUpdate }
 }

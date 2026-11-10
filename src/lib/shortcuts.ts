@@ -13,6 +13,18 @@ export const selectAllFilesShortcut: Shortcut = { key: 'a', primary: true }
 
 export const cloneRepositoryShortcut: Shortcut = { key: 'n', primary: true, allowInInputs: true }
 
+export const switchRepositoryShortcut: Shortcut = { key: 'p', primary: true, allowInInputs: true }
+
+export const openRepositoryShortcut: Shortcut = { key: 'o', primary: true, allowInInputs: true }
+
+export const settingsShortcut: Shortcut = { key: ',', primary: true, allowInInputs: true }
+
+export const sshIdentitiesShortcut: Shortcut = { key: 'k', primary: true, shift: true }
+
+export const refreshRepositoryShortcut: Shortcut = { key: 'r', primary: true }
+
+export const searchCommitsShortcut: Shortcut = { key: 'f', primary: true }
+
 export function matchesShortcut(event: KeyboardEvent, shortcut: Shortcut, mac: boolean) {
   return (
     event.key.toLowerCase() === shortcut.key.toLowerCase() &&

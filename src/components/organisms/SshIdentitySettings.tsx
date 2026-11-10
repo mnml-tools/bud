@@ -1,19 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FolderOpen, KeyRound, Trash2 } from 'lucide-react'
 import type { GitWorkspace } from '../../hooks/useGitWorkspace'
 import type { GitRequest } from '../../services/git'
-import { GitDialog } from '../molecules/GitDialog'
 import { Button } from '../atoms/Button'
 import { SshKeyPasswordDialog } from './SshKeyPasswordDialog'
 
-export function SshKeysDialog({
+export function SshIdentitySettings({
   workspace,
   request,
-  onDismiss
+  onBusyChange
 }: {
   workspace: GitWorkspace
   request: GitRequest
-  onDismiss: () => void
+  onBusyChange: (busy: boolean) => void
 }) {
   const [name, setName] = useState('')
   const [path, setPath] = useState('')
@@ -22,8 +21,16 @@ export function SshKeysDialog({
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  useEffect(() => {
+    onBusyChange(busy)
+  }, [busy, onBusyChange])
+
   return (
-    <GitDialog title="SSH identities" eyebrow="WORK AND PERSONAL" busy={busy} onDismiss={onDismiss}>
+    <section className="settings-section settings-ssh">
+      <div>
+        <h2>SSH identities</h2>
+        <p>Manage your work and personal Git identities.</p>
+      </div>
       <p className="git-hint">
         Register existing private keys and choose an identity for each repository. Bud keeps key passwords in your
         system credential store. Private key files stay on your machine.
@@ -82,7 +89,6 @@ export function SshKeysDialog({
         <label>
           Identity name
           <input
-            autoFocus
             required
             placeholder="Personal GitHub or Work GitLab"
             value={name}
@@ -149,15 +155,27 @@ export function SshKeysDialog({
           ))}
         </select>
       </label>
+      {workspace.repository && (
+        <label>
+          Identity for {workspace.repository.name}
+          <select
+            disabled={busy || !!workspace.busy}
+            value={workspace.activeKeyId}
+            onChange={(event) => workspace.chooseKey(event.target.value)}
+          >
+            <option value="">SSH config / agent</option>
+            {workspace.keys.map((key) => (
+              <option key={key.id} value={key.id}>
+                {key.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <p className="git-hint">
         Saved passwords unlock encrypted keys automatically. Without a saved password, encrypted keys can use your SSH
         agent. Unknown hosts must first be verified through SSH in a terminal.
       </p>
-      <div className="discard-actions">
-        <Button onClick={onDismiss} disabled={busy}>
-          Done
-        </Button>
-      </div>
       {editingKey && workspace.keys.find((key) => key.id === editingKey) && (
         <SshKeyPasswordDialog
           identity={workspace.keys.find((key) => key.id === editingKey)!}
@@ -166,6 +184,6 @@ export function SshKeysDialog({
           onDismiss={() => setEditingKey(null)}
         />
       )}
-    </GitDialog>
+    </section>
   )
 }

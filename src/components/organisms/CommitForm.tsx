@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import type { GitWorkspace } from '../../hooks/useGitWorkspace'
 import { Sparkles, Settings2 } from 'lucide-react'
-import { CommitAiSettingsDialog } from './CommitAiSettingsDialog'
-import type { CommitAiSettings } from './CommitAiSettingsDialog'
+import type { CommitAiSettings } from './AiSettings'
 import { Button } from '../atoms/Button'
 
-export function CommitForm({ workspace }: { workspace: GitWorkspace }) {
+export function CommitForm({ workspace, onOpenAiSettings }: { workspace: GitWorkspace; onOpenAiSettings: () => void }) {
   const storageKey = `bud.commitDraft:${workspace.repository!.path}`
   const [draft, setDraft] = useState(() => {
     try {
@@ -19,7 +18,6 @@ export function CommitForm({ workspace }: { workspace: GitWorkspace }) {
   const stagedCount = (workspace.repository!.changes ?? []).filter(
     (file) => file.status !== '??' && file.status[0] !== ' '
   ).length
-  const [settingsOpen, setSettingsOpen] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generationError, setGenerationError] = useState('')
   const [suggestion, setSuggestion] = useState<{ message: string; description: string } | null>(null)
@@ -35,7 +33,7 @@ export function CommitForm({ workspace }: { workspace: GitWorkspace }) {
     try {
       const settings = await workspace.request<CommitAiSettings>('ai_settings')
       if (!settings.enabled) {
-        setSettingsOpen(true)
+        onOpenAiSettings()
         return
       }
 
@@ -130,7 +128,7 @@ export function CommitForm({ workspace }: { workspace: GitWorkspace }) {
           title="AI commit settings"
           aria-label="AI commit settings"
           disabled={busy}
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => onOpenAiSettings()}
         >
           <Settings2 size={13} />
         </Button>
@@ -138,7 +136,6 @@ export function CommitForm({ workspace }: { workspace: GitWorkspace }) {
           {workspace.busy === 'Committing' ? 'Committing…' : 'Commit'}
         </Button>
       </div>
-      {settingsOpen && <CommitAiSettingsDialog request={workspace.request} onDismiss={() => setSettingsOpen(false)} />}
     </form>
   )
 }

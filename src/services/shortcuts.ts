@@ -1,3 +1,4 @@
+import { resolveShortcut } from './shortcutPreferences'
 import { createDoubleShiftDetector, matchesShortcut } from '../lib/shortcuts'
 import type { Shortcut } from '../lib/shortcuts'
 
@@ -22,16 +23,16 @@ function handleKeyboard(event: KeyboardEvent) {
     event.target instanceof HTMLElement &&
     (event.target.isContentEditable || !!event.target.closest('input, textarea, select, [contenteditable]'))
   const mac = /Mac/.test(navigator.platform)
-  const command = [...commands]
-    .reverse()
-    .find(
-      (item) =>
-        item.enabled() &&
-        (!inputFocused || item.shortcut.allowInInputs) &&
-        (item.shortcut.doubleTap
-          ? doubleTapped && item.shortcut.key === 'Shift'
-          : event.type === 'keydown' && matchesShortcut(event, item.shortcut, mac))
+  const command = [...commands].reverse().find((item) => {
+    const shortcut = resolveShortcut(item.shortcut)
+    return (
+      item.enabled() &&
+      (!inputFocused || shortcut.allowInInputs) &&
+      (shortcut.doubleTap
+        ? doubleTapped && shortcut.key === 'Shift'
+        : event.type === 'keydown' && matchesShortcut(event, shortcut, mac))
     )
+  })
   if (!command) return
 
   event.preventDefault()

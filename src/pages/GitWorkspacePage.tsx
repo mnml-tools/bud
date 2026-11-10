@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ArrowLeft, ArrowDownToLine, ArrowUpFromLine, GitBranch, GitFork, RefreshCw } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, GitBranch, GitFork, RefreshCw } from 'lucide-react'
 import type { GitWorkspace } from '../hooks/useGitWorkspace'
 import { useShortcut } from '../hooks/useShortcut'
 import { findCommitsShortcut } from '../lib/shortcuts'
@@ -27,9 +27,6 @@ export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspa
   return (
     <>
       <div className="git-toolbar">
-        <Button disabled={disabled} onClick={workspace.close} title="All repositories">
-          <ArrowLeft size={14} />
-        </Button>
         <div className="git-remote-actions">
           <Button disabled={disabled || !workspace.remote} onClick={() => void workspace.remoteAction('fetch')}>
             <ArrowDownToLine size={13} />
@@ -86,6 +83,7 @@ export function GitWorkspacePage({ workspace, onClone }: { workspace: GitWorkspa
             <CommitHistory
               key={repo.path}
               history={workspace.history}
+              loadDiff={workspace.commitDiff}
               githubRepo={repo.githubRepo ?? undefined}
               selected={selected}
               busy={disabled}

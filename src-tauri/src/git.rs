@@ -542,6 +542,35 @@ pub async fn git_image_diff(path: String, file: String, staged: bool) -> Result<
 }
 
 #[tauri::command]
+pub async fn git_commit_diff(path: String, hash: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = root(&path)?;
+        if hash.len() != 40 && hash.len() != 64
+            || !hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Err("Invalid commit hash.".into());
+        }
+        git(
+            &directory,
+            &[
+                "show",
+                "--format=",
+                "--root",
+                "--diff-merges=first-parent",
+                "--no-ext-diff",
+                "--no-textconv",
+                "--no-color",
+                "--find-renames",
+                &hash,
+                "--",
+            ],
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn git_file_diff(path: String, file: String, staged: bool) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let directory = root(&path)?;
@@ -1109,6 +1138,16 @@ mod tests {
             .iter()
             .any(|branch| branch.name == "main" && branch.current));
         assert_eq!(git(&temp, &["show", "HEAD:file.txt"]).unwrap(), "staged\n");
+        let hash = git(&temp, &["rev-parse", "HEAD"])
+            .unwrap()
+            .trim()
+            .to_string();
+        let diff = git_commit_diff(path.clone(), hash).await.unwrap();
+        assert!(diff.contains("diff --git a/file.txt b/file.txt"));
+        assert!(diff.contains("+staged"));
+        assert!(!diff.contains("unstaged"));
+        assert!(!diff.contains("untracked.txt"));
+        assert!(git_commit_diff(path.clone(), "--all".into()).await.is_err());
         assert_eq!(
             std::fs::read_to_string(temp.join("file.txt")).unwrap(),
             "unstaged\n"

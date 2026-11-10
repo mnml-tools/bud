@@ -334,6 +334,7 @@ export function useGitWorkspace(request: GitRequest) {
     remoteAction,
     branchAction,
     fileDiff,
+    commitDiff: (hash: string) => request<string>('git_commit_diff', { path: repository!.path, hash }),
     imageDiff,
     fileAction,
     commit,

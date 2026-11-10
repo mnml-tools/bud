@@ -1,3 +1,5 @@
+import { DiffLines } from '../molecules/DiffLines'
+
 export function ChangeDiffPane({
   path,
   staged,
@@ -40,24 +42,7 @@ export function ChangeDiffPane({
               {error}
             </p>
           ) : visibleLines.some((line) => line.trim()) ? (
-            <pre className="git-diff-lines">
-              {visibleLines.map((line, index) => (
-                <div
-                  key={index}
-                  className={
-                    line.startsWith('@@')
-                      ? 'hunk'
-                      : line.startsWith('+')
-                        ? 'added'
-                        : line.startsWith('-')
-                          ? 'removed'
-                          : ''
-                  }
-                >
-                  {line || ' '}
-                </div>
-              ))}
-            </pre>
+            <DiffLines diff={visibleLines.join('\n')} path={path} />
           ) : (
             <p className="git-diff-message">No text diff available for this file.</p>
           )}

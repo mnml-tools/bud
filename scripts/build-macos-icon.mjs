@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const project = new URL('../', import.meta.url)
-const source = fileURLToPath(new URL('src-tauri/icons/AppIcon.icon', project))
+const source = fileURLToPath(new URL('src-tauri/assets/AppIcon.icon', project))
 const output = fileURLToPath(new URL('src-tauri/target/macos-icon/', project))
 
 if (process.platform !== 'darwin') {

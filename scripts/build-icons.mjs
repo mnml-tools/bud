@@ -1,9 +1,17 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
 const project = fileURLToPath(new URL('../', import.meta.url))
+const require = createRequire(import.meta.url)
+let tauriCli
+try {
+  tauriCli = require.resolve('@tauri-apps/cli/tauri.js')
+} catch {
+  throw new Error('The Tauri CLI is missing. Run npm ci --include=dev, then retry npm run icons.')
+}
 
 function run(command, args) {
   const result = spawnSync(command, args, { cwd: project, stdio: ['ignore', 'inherit', 'inherit'] })
@@ -27,7 +35,7 @@ if (!existsSync(renderer)) {
 }
 
 run(renderer, [
-  join(project, 'src-tauri/icons/AppIcon.icon'),
+  join(project, 'src-tauri/assets/AppIcon.icon'),
   '--export-image',
   '--output-file',
   join(project, 'src/assets/AppIcon.png'),
@@ -43,5 +51,5 @@ run(renderer, [
   '1'
 ])
 
-run(join(project, 'node_modules/.bin/tauri'), ['icon', 'src/assets/AppIcon.png'])
+run(process.execPath, [tauriCli, 'icon', 'src/assets/AppIcon.png'])
 run(process.execPath, ['scripts/build-macos-icon.mjs'])

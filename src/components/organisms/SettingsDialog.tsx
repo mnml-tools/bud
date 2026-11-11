@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Palette, KeyRound, Sparkles, Keyboard, Info } from 'lucide-react'
+import { Palette, KeyRound, Sparkles, Keyboard, Terminal, Info } from 'lucide-react'
 import type { Update } from '@tauri-apps/plugin-updater'
 import type { GitWorkspace } from '../../hooks/useGitWorkspace'
 import { GitDialog } from '../molecules/GitDialog'
@@ -8,15 +8,17 @@ import { ThemeSettings } from './ThemeSettings'
 import { SshIdentitySettings } from './SshIdentitySettings'
 import { AiSettings } from './AiSettings'
 import { ShortcutSettings } from './ShortcutSettings'
+import { CliSettings } from './CliSettings'
 import { UpdateSettings } from './UpdateSettings'
 
-export type SettingsSection = 'themes' | 'ssh' | 'ai' | 'shortcuts' | 'updates'
+export type SettingsSection = 'themes' | 'ssh' | 'ai' | 'shortcuts' | 'cli' | 'updates'
 
 const sections = [
   { id: 'themes', label: 'Themes', icon: Palette },
   { id: 'ssh', label: 'SSH identities', icon: KeyRound },
   { id: 'ai', label: 'AI commit messages', icon: Sparkles },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
+  { id: 'cli', label: 'Terminal command', icon: Terminal },
   { id: 'updates', label: 'Updates & about', icon: Info }
 ] as const
 
@@ -66,6 +68,8 @@ export function SettingsDialog({
                   <AiSettings request={workspace.request} onBusyChange={setBusy} />
                 ) : id === 'shortcuts' ? (
                   <ShortcutSettings />
+                ) : id === 'cli' ? (
+                  <CliSettings request={workspace.request} onBusyChange={setBusy} />
                 ) : (
                   <UpdateSettings request={workspace.request} onUpdate={onUpdate} />
                 ))}

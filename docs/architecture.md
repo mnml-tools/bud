@@ -42,3 +42,9 @@ Modified text files support partial staging through **Stage hunk** / **Unstage h
 The commit form's sparkle action generates an editable conventional commit subject and description; it never stages files, commits, or pushes. AI is disabled by default. The settings control configures an OpenAI-compatible API base URL and model ID, with an optional API key stored in the OS credential store under a separate service and endpoint account. Only endpoint, model, and enabled state are saved in the app configuration directory. Local model servers can use HTTP on loopback; remote endpoints require HTTPS.
 
 `commit_ai.rs` reads the index through `git diff --cached --no-ext-diff --no-textconv`, rejects empty or oversized diffs (120 KB), and sends the diff only after an explicit generate action. Requests time out after 60 seconds and do not follow redirects. Provider errors omit response bodies to avoid echoing credentials or source content. Generated JSON is validated before reaching the form; existing drafts require an explicit replacement action. No Python or gac installation is required.
+
+## Terminal launcher
+
+Settings → Terminal command installs a small `bud` shell launcher at `~/.local/bin/bud` on macOS and Linux. Installation adds an idempotent PATH entry to the user's Bash or Zsh startup file and refuses to replace unrelated commands. Open a new terminal tab after installation. `bud` opens the current Git repository, including from a nested directory; `bud /path/to/repository` opens a specified repository, and `bud --help` prints usage.
+
+The launcher resolves the repository through Git and passes its path as a separate `--open` argument. The single-instance plugin forwards requests to the running app. Native requests are queued until the frontend subscribes after saved tabs have restored; the frontend serializes opening requests with other Git work. The launcher uses the installed app's location, so reinstall the command if Bud is moved.

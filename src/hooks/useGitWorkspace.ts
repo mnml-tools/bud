@@ -264,6 +264,45 @@ export function useGitWorkspace(request: GitRequest) {
       await activate(await openRepository(request, path), undefined, avatarColor)
     })
 
+  const cliOpen = useRef(open)
+  cliOpen.current = open
+
+  useEffect(() => {
+    if (!tabsRestored || !isTauri()) return
+
+    let disposed = false
+    let processing = false
+    let timer: number | undefined
+    const pending: string[] = []
+    const process = async () => {
+      if (disposed || processing || !pending.length) return
+      if (lock.current) {
+        timer = window.setTimeout(process, 100)
+        return
+      }
+
+      processing = true
+      const path = pending.shift()!
+      await cliOpen.current(path)
+      processing = false
+      if (!disposed && pending.length) void process()
+    }
+    const channel = new Channel<string>()
+    channel.onmessage = (path) => {
+      if (disposed) return
+      pending.push(path)
+      void process()
+    }
+    void request('cli_subscribe', { onOpen: channel }).catch((error) => {
+      if (!disposed) setError(`Unable to receive terminal requests: ${String(error)}`)
+    })
+
+    return () => {
+      disposed = true
+      window.clearTimeout(timer)
+    }
+  }, [request, tabsRestored])
+
   const closeTab = (path: string) => {
     if (lock.current) return
 

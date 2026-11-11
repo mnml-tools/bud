@@ -2,10 +2,11 @@ import { CommitContextMenu } from '../molecules/CommitContextMenu'
 import { CommitDiffPanel } from './CommitDiffPanel'
 import { AuthorAvatar } from '../atoms/AuthorAvatar'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { GitCommitHorizontal, Search } from 'lucide-react'
-import { buildCommitGraph, graphColors } from '../../lib/commitGraph'
+import { GitCommitHorizontal, Search, Tag } from 'lucide-react'
+import { buildCommitGraph, graphColors as lanePalette } from '../../lib/commitGraph'
 import type { History } from '../../types/git'
 import { Button } from '../atoms/Button'
+import { useTheme } from '../../hooks/useTheme'
 
 const rowHeight = 38
 const commitDateFormat = new Intl.DateTimeFormat(undefined, {
@@ -36,6 +37,12 @@ export function CommitHistory({
   onMore: () => void
   filterRef: React.RefObject<HTMLInputElement | null>
 }) {
+  const { accent } = useTheme()
+  const paletteStart = { green: 0, blue: 2, purple: 3, pink: 5, orange: 6 }[accent]
+  const graphColors = lanePalette.map((_, index) =>
+    index === 0 ? 'var(--accent)' : lanePalette[(paletteStart + index) % lanePalette.length]
+  )
+
   const [menu, setMenu] = useState<{ hash: string; x: number; y: number; trigger: HTMLButtonElement } | null>(null)
   const [query, setQuery] = useState('')
   const [scroll, setScroll] = useState(0)
@@ -44,7 +51,7 @@ export function CommitHistory({
   const [diffClosed, setDiffClosed] = useState(false)
   const viewport = useRef<HTMLDivElement>(null)
   const graph = useMemo(() => buildCommitGraph(history.commits), [history.commits])
-  const graphWidth = Math.max(90, graph.reduce((width, row) => Math.max(width, row.width), 0) * 18 + 28)
+  const graphWidth = Math.max(54, graph.reduce((width, row) => Math.max(width, row.width), 0) * 18 + 18)
   const matching = useMemo(
     () =>
       new Set(
@@ -110,11 +117,8 @@ export function CommitHistory({
       {selected && !history.commits.some((commit) => commit.hash === selected) && (
         <p className="git-search-info">This branch tip is in older history. Load more commits to reach it.</p>
       )}
-      <div
-        className="git-history-columns"
-        style={{ gridTemplateColumns: `${graphWidth}px minmax(240px, 1fr) 150px 160px` }}
-      >
-        <span>GRAPH</span>
+      <div className="git-history-columns" style={{ gridTemplateColumns: `36px minmax(240px, 1fr) 150px 160px` }}>
+        <span aria-hidden="true" />
         <span>COMMIT</span>
         <span>AUTHOR</span>
         <span>DATE</span>
@@ -132,6 +136,7 @@ export function CommitHistory({
               const index = start + offset
               const row = graph[index]
               const x = (lane: number) => 20 + lane * 18
+              const rowGraphWidth = x(Math.max(row.lane, ...row.lines.flatMap((line) => [line.from, line.to]))) + 16
               const active = commit.hash === (focused || selected)
 
               return (
@@ -141,7 +146,7 @@ export function CommitHistory({
                   style={{
                     top: index * rowHeight,
                     height: rowHeight,
-                    gridTemplateColumns: `${graphWidth}px minmax(240px, 1fr) 150px 160px`
+                    gridTemplateColumns: `${rowGraphWidth}px minmax(240px, 1fr) 150px 160px`
                   }}
                   onClick={() => {
                     setFocused(commit.hash)
@@ -161,19 +166,23 @@ export function CommitHistory({
                   aria-pressed={active}
                   title={`${commit.hash}\n${commit.subject}`}
                 >
-                  <svg width={graphWidth} height={rowHeight} aria-hidden="true">
+                  <svg width={rowGraphWidth} height={rowHeight} aria-hidden="true">
                     {row.lines
                       .filter((line) => line.from !== row.lane)
                       .map((line, i) => (
                         <path
                           key={`pass${i}`}
-                          d={`M ${x(line.from)} 0 L ${x(line.from)} 19 C ${x(line.from)} 29 ${x(line.to)} 29 ${x(line.to)} 38`}
+                          d={
+                            line.endsAtNode
+                              ? `M ${x(line.from)} 0 C ${x(line.from)} 19 ${x(line.to)} 0 ${x(line.to)} 19`
+                              : `M ${x(line.from)} 0 V 38`
+                          }
                           fill="none"
                           stroke={graphColors[line.color]}
                           strokeWidth="2"
                         />
                       ))}
-                    {index > 0 && graph[index - 1].lines.some((line) => line.to === row.lane) && (
+                    {index > 0 && graph[index - 1].lines.some((line) => !line.endsAtNode && line.to === row.lane) && (
                       <path d={`M ${x(row.lane)} 0 V 19`} stroke={graphColors[row.color]} strokeWidth="2" />
                     )}
                     {row.lines
@@ -181,7 +190,7 @@ export function CommitHistory({
                       .map((line, i) => (
                         <path
                           key={`parent${i}`}
-                          d={`M ${x(row.lane)} 19 C ${x(row.lane)} 29 ${x(line.to)} 29 ${x(line.to)} 38`}
+                          d={`M ${x(row.lane)} 19 C ${x(row.lane)} 38 ${x(line.to)} 19 ${x(line.to)} 38`}
                           fill="none"
                           stroke={graphColors[line.color]}
                           strokeWidth="2"
@@ -190,11 +199,21 @@ export function CommitHistory({
                     <circle
                       cx={x(row.lane)}
                       cy="19"
-                      r="4"
+                      r={commit.parents.length > 1 ? 6 : 3}
                       stroke={graphColors[row.color]}
-                      fill="var(--background)"
+                      fill={commit.parents.length > 1 ? 'var(--background)' : graphColors[row.color]}
                       strokeWidth="2"
                     />
+                    {commit.parents.length > 1 && (
+                      <path
+                        d={`M ${x(row.lane) - 2.5} 18 L ${x(row.lane)} 20.5 L ${x(row.lane) + 2.5} 18`}
+                        fill="none"
+                        stroke={graphColors[row.color]}
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
                   </svg>
                   <span className="git-commit-message">
                     {commit.refs
@@ -204,11 +223,13 @@ export function CommitHistory({
                       .map((ref) => (
                         <span
                           key={ref}
-                          className="git-ref"
+                          className={`git-ref${ref.startsWith('tag: ') ? ' git-ref-tag' : ''}`}
+                          aria-label={ref.startsWith('tag: ') ? ref : undefined}
                           title={ref}
                           style={{ color: ref.startsWith('tag: ') ? '#a17de0' : graphColors[row.color] }}
                         >
-                          {ref}
+                          {ref.startsWith('tag: ') && <Tag size={10} aria-hidden="true" />}
+                          {ref.startsWith('tag: ') ? ref.slice(5) : ref}
                         </span>
                       ))}
                     <span>{commit.subject}</span>

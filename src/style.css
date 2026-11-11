@@ -1025,9 +1025,19 @@ button:focus-visible {
   border: 1px solid color-mix(in srgb, currentColor 40%, var(--border));
   padding: 1px 4px;
   font-size: 10px;
-  max-width: 150px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 500;
+  white-space: nowrap;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  flex-shrink: 0;
+}
+.git-ref-tag {
+  border-color: currentColor;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.git-ref-tag > svg {
   flex-shrink: 0;
 }
 .git-commit-author {
@@ -1438,6 +1448,16 @@ select,
   flex: 1;
 }
 
+.git-ref-tag {
+  border-color: currentColor;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.git-ref-tag > svg {
+  flex-shrink: 0;
+}
 .git-commit-author {
   display: flex;
   align-items: center;

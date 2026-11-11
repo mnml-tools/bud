@@ -41,6 +41,7 @@ fn main() {
             git::git_init,
             git::git_remote,
             git::git_checkout,
+            git::git_checkout_commit,
             git::git_branch_action,
             git::git_pick_path,
             git::git_validate_key,

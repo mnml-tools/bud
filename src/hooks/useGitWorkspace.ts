@@ -290,6 +290,15 @@ export function useGitWorkspace(request: GitRequest) {
       setHistory(await loadHistory(request, repo.path, limit.current))
     })
 
+  const checkoutCommit = (hash: string) =>
+    run('Checking out commit', async () => {
+      if (!repository) return
+
+      const repo = await request<Repository>('git_checkout_commit', { path: repository.path, hash })
+      setRepository(repo)
+      setHistory(await loadHistory(request, repo.path, limit.current))
+    })
+
   const remoteAction = (action: 'fetch' | 'pull' | 'push') =>
     run({ fetch: 'Fetching', pull: 'Pulling', push: 'Pushing' }[action], async () => {
       if (!repository) return
@@ -448,6 +457,7 @@ export function useGitWorkspace(request: GitRequest) {
     refresh,
     more,
     checkout,
+    checkoutCommit,
     remoteAction,
     branchAction,
     fileDiff,

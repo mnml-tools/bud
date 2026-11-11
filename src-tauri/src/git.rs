@@ -942,6 +942,24 @@ pub async fn git_checkout(path: String, branch: String) -> Result<Repository, St
 }
 
 #[tauri::command]
+pub async fn git_checkout_commit(path: String, hash: String) -> Result<Repository, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = root(&path)?;
+        if !matches!(hash.len(), 40 | 64) || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("Choose a valid commit.".into());
+        }
+        let commit = git(
+            &directory,
+            &["rev-parse", "--verify", &format!("{hash}^{{commit}}")],
+        )?;
+        git(&directory, &["switch", "--detach", commit.trim()])?;
+        inspect(&path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn git_pick_path(window: tauri::Window, file: bool) -> Result<Option<String>, String> {
     let (send, receive) = tokio::sync::oneshot::channel();
     let picker = window.dialog().file().set_parent(&window);
@@ -1146,6 +1164,56 @@ mod tests {
         assert!(git_image_diff(path.clone(), "../outside.png".into(), false)
             .await
             .is_err());
+        std::fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[tokio::test]
+    async fn checkout_older_commit_preserves_branches_and_local_changes() {
+        let temp =
+            std::env::temp_dir().join(format!("bud-checkout-commit-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+        git(&temp, &["init", "-b", "main"]).unwrap();
+        git(&temp, &["config", "commit.gpgsign", "false"]).unwrap();
+        git(&temp, &["config", "user.name", "Bud Test"]).unwrap();
+        git(&temp, &["config", "user.email", "bud@example.test"]).unwrap();
+        std::fs::write(temp.join("file.txt"), "old").unwrap();
+        git(&temp, &["add", "."]).unwrap();
+        git(&temp, &["commit", "-m", "Old"]).unwrap();
+        let older = git(&temp, &["rev-parse", "HEAD"])
+            .unwrap()
+            .trim()
+            .to_string();
+        std::fs::write(temp.join("file.txt"), "new").unwrap();
+        git(&temp, &["commit", "-am", "New"]).unwrap();
+        let tip = git(&temp, &["rev-parse", "HEAD"]).unwrap();
+        let path = temp.to_string_lossy().into_owned();
+        std::fs::write(temp.join("file.txt"), "local edits").unwrap();
+        assert!(git_checkout_commit(path.clone(), older.clone())
+            .await
+            .is_err());
+        assert_eq!(
+            std::fs::read_to_string(temp.join("file.txt")).unwrap(),
+            "local edits"
+        );
+        assert_eq!(git(&temp, &["rev-parse", "HEAD"]).unwrap(), tip);
+        git(&temp, &["restore", "file.txt"]).unwrap();
+        for invalid in [
+            "--detach",
+            "HEAD",
+            "0000000000000000000000000000000000000000",
+        ] {
+            assert!(git_checkout_commit(path.clone(), invalid.into())
+                .await
+                .is_err());
+        }
+        let repo = git_checkout_commit(path.clone(), older.clone())
+            .await
+            .unwrap();
+        assert_eq!(repo.current_branch, "Detached HEAD");
+        assert_eq!(git(&temp, &["rev-parse", "HEAD"]).unwrap().trim(), older);
+        assert_eq!(git(&temp, &["rev-parse", "main"]).unwrap(), tip);
+        git_checkout(path, "main".into()).await.unwrap();
         std::fs::remove_dir_all(temp).unwrap();
     }
 

@@ -1,3 +1,4 @@
+import { CommitContextMenu } from '../molecules/CommitContextMenu'
 import { CommitDiffPanel } from './CommitDiffPanel'
 import { AuthorAvatar } from '../atoms/AuthorAvatar'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -22,6 +23,7 @@ export function CommitHistory({
   selected,
   busy,
   onMore,
+  onCheckout,
   filterRef,
   githubRepo
 }: {
@@ -30,9 +32,11 @@ export function CommitHistory({
   githubRepo?: string
   selected: string
   busy: boolean
+  onCheckout: (hash: string) => void
   onMore: () => void
   filterRef: React.RefObject<HTMLInputElement | null>
 }) {
+  const [menu, setMenu] = useState<{ hash: string; x: number; y: number; trigger: HTMLButtonElement } | null>(null)
   const [query, setQuery] = useState('')
   const [scroll, setScroll] = useState(0)
   const [height, setHeight] = useState(600)
@@ -143,6 +147,17 @@ export function CommitHistory({
                     setFocused(commit.hash)
                     setDiffClosed(false)
                   }}
+                  onContextMenu={(event) => {
+                    event.preventDefault()
+                    setMenu({ hash: commit.hash, x: event.clientX, y: event.clientY, trigger: event.currentTarget })
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                      event.preventDefault()
+                      const rect = event.currentTarget.getBoundingClientRect()
+                      setMenu({ hash: commit.hash, x: rect.left, y: rect.bottom, trigger: event.currentTarget })
+                    }
+                  }}
                   aria-pressed={active}
                   title={`${commit.hash}\n${commit.subject}`}
                 >
@@ -228,6 +243,18 @@ export function CommitHistory({
           </div>
         )}
       </div>
+      {menu && (
+        <CommitContextMenu
+          {...menu}
+          disabled={busy || history.commits[headIndex]?.hash === menu.hash}
+          onDismiss={() => setMenu(null)}
+          onCheckout={() => {
+            if (busy) return
+            setMenu(null)
+            onCheckout(menu.hash)
+          }}
+        />
+      )}
       {selectedCommit && !diffClosed && (
         <CommitDiffPanel commit={selectedCommit} loadDiff={loadDiff} onClose={() => setDiffClosed(true)} />
       )}

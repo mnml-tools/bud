@@ -136,6 +136,7 @@ export function GitWorkspacePage({
               selected={selected}
               busy={disabled}
               onMore={() => void workspace.more()}
+              onCheckout={(hash) => void workspace.checkoutCommit(hash)}
               filterRef={filterRef}
             />
           )}

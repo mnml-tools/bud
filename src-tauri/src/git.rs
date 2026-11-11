@@ -927,10 +927,16 @@ pub async fn git_checkout(path: String, branch: String) -> Result<Repository, St
     tauri::async_runtime::spawn_blocking(move || {
         let directory = root(&path)?;
         if branch.starts_with('-')
-            || !inspect(&path)?
-                .branches
-                .iter()
-                .any(|b| !b.remote && b.name == branch)
+            || git(
+                &directory,
+                &[
+                    "show-ref",
+                    "--verify",
+                    "--quiet",
+                    &format!("refs/heads/{branch}"),
+                ],
+            )
+            .is_err()
         {
             return Err("Choose an existing local branch.".into());
         }

@@ -27,6 +27,7 @@ export function useGitWorkspace(request: GitRequest) {
   const [repository, setRepository] = useState<Repository | null>(null)
   const [history, setHistory] = useState<History>({ commits: [], hasMore: false })
   const [busy, setBusy] = useState('')
+  const [switchingBranch, setSwitchingBranch] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [remote, setRemote] = useState('')
@@ -285,9 +286,50 @@ export function useGitWorkspace(request: GitRequest) {
     run('Switching branch', async () => {
       if (!repository) return
 
-      const repo = await request<Repository>('git_checkout', { path: repository.path, branch })
-      setRepository(repo)
-      setHistory(await loadHistory(request, repo.path, limit.current))
+      setSwitchingBranch(branch)
+
+      try {
+        const repo = await request<Repository>('git_checkout', { path: repository.path, branch })
+        setRepository(repo)
+        const target = repo.branches.find((item) => item.current)
+        const refsUnchanged =
+          repo.branches.length === repository.branches.length &&
+          repo.branches.every((item) =>
+            repository.branches.some(
+              (previous) =>
+                previous.name === item.name && previous.remote === item.remote && previous.hash === item.hash
+            )
+          )
+
+        if (
+          target &&
+          repository.currentBranch !== 'Detached HEAD' &&
+          refsUnchanged &&
+          history.commits.some((commit) => commit.hash === target.hash)
+        ) {
+          setHistory((previous) => ({
+            ...previous,
+            commits: previous.commits.map((commit) => {
+              const refs = commit.refs
+                .split(', ')
+                .map((ref) => (ref === 'HEAD' ? '' : ref.replace(/^HEAD -> /, '')))
+                .filter(Boolean)
+
+              if (commit.hash === target.hash) {
+                const index = refs.indexOf(branch)
+                if (index >= 0) refs[index] = `HEAD -> ${branch}`
+                else refs.unshift(`HEAD -> ${branch}`)
+              }
+
+              return { ...commit, refs: refs.join(', ') }
+            })
+          }))
+        } else {
+          setHistory(await loadHistory(request, repo.path, limit.current))
+        }
+      } finally {
+        setSwitchingBranch('')
+      }
     })
 
   const checkoutCommit = (hash: string) =>
@@ -457,6 +499,7 @@ export function useGitWorkspace(request: GitRequest) {
     refresh,
     more,
     checkout,
+    switchingBranch,
     checkoutCommit,
     remoteAction,
     branchAction,

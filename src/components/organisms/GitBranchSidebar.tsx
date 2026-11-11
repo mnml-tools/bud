@@ -1,5 +1,15 @@
 import { useCallback, useState } from 'react'
-import { GitBranch, GitCommitVertical, Cloud, Search, House, ChevronDown, ChevronRight, ArrowDown } from 'lucide-react'
+import {
+  GitBranch,
+  GitCommitVertical,
+  LoaderCircle,
+  Cloud,
+  Search,
+  House,
+  ChevronDown,
+  ChevronRight,
+  ArrowDown
+} from 'lucide-react'
 import type { GitWorkspace } from '../../hooks/useGitWorkspace'
 import { ResizableSidebar } from './ResizableSidebar'
 import { Button } from '../atoms/Button'
@@ -92,8 +102,12 @@ export function GitBranchSidebar({
                 )}
               {isExpanded &&
                 branches.map((branch) => (
-                  <div className={`git-branch-row${branch.current ? ' current' : ''}`} key={branch.name}>
+                  <div
+                    className={`git-branch-row${(!branch.remote && workspace.switchingBranch ? workspace.switchingBranch === branch.name : branch.current) ? ' current' : ''}`}
+                    key={branch.name}
+                  >
                     <Button
+                      aria-busy={!remote && workspace.switchingBranch === branch.name}
                       title={`${branch.name} · ${branch.hash.slice(0, 7)}`}
                       aria-pressed={!showingChanges && selected === branch.hash}
                       onClick={() => onSelect(branch.hash)}
@@ -113,7 +127,11 @@ export function GitBranchSidebar({
                         }
                       }}
                     >
-                      <GitBranch size={13} />
+                      {!remote && workspace.switchingBranch === branch.name ? (
+                        <LoaderCircle size={13} className="git-spinning" aria-label="Switching branch" />
+                      ) : (
+                        <GitBranch size={13} />
+                      )}
                       <span>{branch.name}</span>
                     </Button>
                     {!remote && (branch.incomingCommits ?? 0) > 0 && (

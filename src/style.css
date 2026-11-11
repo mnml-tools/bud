@@ -2518,3 +2518,38 @@ html.changes-resizing * {
   flex-shrink: 0;
   accent-color: var(--accent);
 }
+
+.git-branch-row .git-branch-warning {
+  display: inline-flex;
+  padding: 0 6px;
+}
+.git-branch-row .git-branch-warning svg {
+  color: #b78a32;
+}
+
+.git-branch-warning {
+  position: relative;
+  cursor: help;
+}
+.git-branch-warning-tooltip {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 20;
+  width: 190px;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text);
+  box-shadow: 0 2px 8px #0002;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+  pointer-events: none;
+}
+.git-branch-warning:hover .git-branch-warning-tooltip,
+.git-branch-warning:focus-visible .git-branch-warning-tooltip {
+  display: block;
+}

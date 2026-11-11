@@ -57,6 +57,7 @@ struct Branch {
     remote: bool,
     current: bool,
     incoming_commits: usize,
+    upstream_gone: bool,
 }
 
 #[derive(Serialize)]
@@ -235,11 +236,15 @@ fn inspect(path: &str) -> Result<Repository, String> {
         &[
             "for-each-ref",
             "--sort=refname",
-            "--format=%(refname)%09%(objectname)%09%(HEAD)%09%(symref)",
+            "--format=%(refname)%09%(objectname)%09%(HEAD)%09%(symref)%09%(upstream)",
             "refs/heads",
             "refs/remotes",
         ],
     )?;
+    let ref_names: std::collections::HashSet<&str> = refs
+        .lines()
+        .filter_map(|line| line.split('\t').next())
+        .collect();
     let branches = refs
         .lines()
         .filter_map(|line| {
@@ -259,6 +264,10 @@ fn inspect(path: &str) -> Result<Repository, String> {
                 hash: fields[1].into(),
                 remote,
                 current: fields[2] == "*",
+                upstream_gone: !remote
+                    && fields.get(4).is_some_and(|upstream| {
+                        !upstream.is_empty() && !ref_names.contains(upstream)
+                    }),
                 incoming_commits: if remote {
                     0
                 } else {
@@ -1283,6 +1292,56 @@ mod tests {
             .unwrap();
             assert_eq!(remote.trim().is_empty(), delete_origin);
         }
+        std::fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[test]
+    fn warns_only_when_a_configured_upstream_is_missing() {
+        let temp = std::env::temp_dir().join(format!("bud-upstream-gone-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+        git(&temp, &["init", "-b", "main"]).unwrap();
+        git(&temp, &["config", "user.name", "Bud Test"]).unwrap();
+        git(&temp, &["config", "user.email", "bud@example.test"]).unwrap();
+        git(
+            &temp,
+            &[
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "Initial",
+            ],
+        )
+        .unwrap();
+        git(&temp, &["remote", "add", "origin", "./unused.git"]).unwrap();
+        git(&temp, &["branch", "local-only"]).unwrap();
+        git(&temp, &["update-ref", "refs/remotes/origin/main", "HEAD"]).unwrap();
+        git(&temp, &["branch", "--set-upstream-to=origin/main", "main"]).unwrap();
+        let path = temp.to_string_lossy().into_owned();
+        assert!(inspect(&path)
+            .unwrap()
+            .branches
+            .iter()
+            .all(|branch| !branch.upstream_gone));
+        git(&temp, &["update-ref", "-d", "refs/remotes/origin/main"]).unwrap();
+        let repo = inspect(&path).unwrap();
+        assert!(
+            repo.branches
+                .iter()
+                .find(|branch| branch.name == "main")
+                .unwrap()
+                .upstream_gone
+        );
+        assert!(
+            !repo
+                .branches
+                .iter()
+                .find(|branch| branch.name == "local-only")
+                .unwrap()
+                .upstream_gone
+        );
         std::fs::remove_dir_all(temp).unwrap();
     }
 

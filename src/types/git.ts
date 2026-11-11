@@ -2,7 +2,14 @@ export type SavedRepository = { path: string; name: string; keyId?: string; avat
 
 export type SshKey = { id: string; name: string; path: string; hasPassword?: boolean }
 
-export type Branch = { name: string; hash: string; remote: boolean; current: boolean; incomingCommits?: number }
+export type Branch = {
+  name: string
+  hash: string
+  remote: boolean
+  current: boolean
+  incomingCommits?: number
+  upstreamGone?: boolean
+}
 
 export type Repository = {
   path: string

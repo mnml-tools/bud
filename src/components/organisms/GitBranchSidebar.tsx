@@ -8,6 +8,7 @@ import {
   House,
   ChevronDown,
   ChevronRight,
+  TriangleAlert,
   ArrowDown
 } from 'lucide-react'
 import type { GitWorkspace } from '../../hooks/useGitWorkspace'
@@ -134,6 +135,19 @@ export function GitBranchSidebar({
                       )}
                       <span>{branch.name}</span>
                     </Button>
+                    {!remote && branch.upstreamGone && (
+                      <span
+                        className="git-branch-warning"
+                        aria-label="Tracked remote branch no longer exists"
+                        role="img"
+                        tabIndex={0}
+                      >
+                        <TriangleAlert size={13} aria-hidden="true" />
+                        <span className="git-branch-warning-tooltip" role="tooltip">
+                          The tracked remote branch no longer exists.
+                        </span>
+                      </span>
+                    )}
                     {!remote && (branch.incomingCommits ?? 0) > 0 && (
                       <span
                         className="git-branch-incoming"

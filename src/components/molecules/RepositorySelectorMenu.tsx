@@ -1,6 +1,6 @@
 import { RepositoryAvatar } from '../atoms/RepositoryAvatar'
 import { useEffect, useRef, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, CloudDownload, FolderOpen } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import type { SavedRepository } from '../../types/git'
 
@@ -8,10 +8,12 @@ type Props = {
   id: string
   repository: SavedRepository
   repositories: SavedRepository[]
-  trigger: HTMLButtonElement
+  trigger?: HTMLButtonElement
   onDismiss: () => void
   onSelect: (repository: SavedRepository) => void
   label?: string
+  onOpenLocal?: () => void
+  onClone?: () => void
   emptyMessage?: string
 }
 
@@ -23,6 +25,8 @@ export function RepositorySelectorMenu({
   onDismiss,
   onSelect,
   label = 'Switch repository',
+  onOpenLocal,
+  onClone,
   emptyMessage = 'No other saved repositories.'
 }: Props) {
   const [search, setSearch] = useState('')
@@ -35,19 +39,22 @@ export function RepositorySelectorMenu({
   const active = available[activeIndex] ?? available[0]
   const choose = (item: SavedRepository) => {
     onDismiss()
-    trigger.focus()
+    trigger?.focus()
     onSelect(item)
   }
   const menu = useRef<HTMLDivElement>(null)
-  const rect = trigger.getBoundingClientRect()
+  const rect = trigger?.getBoundingClientRect()
   const width = Math.min(400, window.innerWidth - 24)
-  const left = Math.max(12, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 12))
+  const left = Math.max(
+    12,
+    Math.min((rect ? rect.left + rect.width / 2 : window.innerWidth / 2) - width / 2, window.innerWidth - width - 12)
+  )
 
   useEffect(() => {
     input.current?.focus()
 
     const outside = (event: PointerEvent) => {
-      if (!menu.current?.contains(event.target as Node) && !trigger.contains(event.target as Node)) onDismiss()
+      if (!menu.current?.contains(event.target as Node) && !trigger?.contains(event.target as Node)) onDismiss()
     }
     window.addEventListener('pointerdown', outside)
     window.addEventListener('resize', onDismiss)
@@ -71,9 +78,21 @@ export function RepositorySelectorMenu({
       role="dialog"
       aria-modal="true"
       aria-label={label}
-      style={{ left, top: rect.bottom + 8, width, maxHeight: Math.max(120, window.innerHeight - rect.bottom - 24) }}
+      style={{
+        left: rect ? left : '50%',
+        top: rect ? rect.bottom + 8 : '50%',
+        transform: rect ? undefined : 'translate(-50%, -50%)',
+        width,
+        maxHeight: rect ? Math.max(120, window.innerHeight - rect.bottom - 24) : window.innerHeight - 24
+      }}
       onKeyDown={(event) => {
         if (event.nativeEvent.isComposing) return
+        if (
+          event.target instanceof HTMLButtonElement &&
+          event.target.dataset.repositoryAction &&
+          event.key !== 'Escape'
+        )
+          return
 
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault()
@@ -88,10 +107,10 @@ export function RepositorySelectorMenu({
         } else if (event.key === 'Escape') {
           event.preventDefault()
           onDismiss()
-          trigger.focus()
-        } else if (event.key === 'Tab') {
+          trigger?.focus()
+        } else if (event.key === 'Tab' && !onOpenLocal && !onClone) {
           onDismiss()
-          trigger.focus()
+          trigger?.focus()
         }
       }}
       onBlur={(event) => {
@@ -146,6 +165,36 @@ export function RepositorySelectorMenu({
         <p className="repository-selector-menu-footer" role="status">
           {search ? 'No matching repositories.' : emptyMessage}
         </p>
+      )}
+      {(onOpenLocal || onClone) && (
+        <div className="repository-selector-actions">
+          {onOpenLocal && (
+            <button
+              type="button"
+              data-repository-action="open"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onDismiss()
+                onOpenLocal()
+              }}
+            >
+              <FolderOpen size={14} /> Open local repository
+            </button>
+          )}
+          {onClone && (
+            <button
+              type="button"
+              data-repository-action="clone"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => {
+                onDismiss()
+                onClone()
+              }}
+            >
+              <CloudDownload size={14} /> Clone from origin
+            </button>
+          )}
+        </div>
       )}
       <div className="repository-selector-menu-footer">Switch repositories without changing files</div>
     </div>,

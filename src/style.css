@@ -2442,10 +2442,9 @@ html.changes-resizing * {
   width: min(400px, calc(100vw - 24px));
   max-height: calc(100dvh - 110px);
   padding: 5px;
-  margin: 0;
+  margin: auto;
   position: fixed;
-  top: 86px;
-  left: 12px;
+  inset: 0;
   background: var(--raised);
   border: 1px solid var(--border);
   box-shadow: 0 8px 28px var(--shadow);
@@ -2587,4 +2586,21 @@ html.changes-resizing * {
   .git-startup-loading .git-spinning {
     animation: none;
   }
+}
+
+.repository-selector-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-top: 1px solid var(--border);
+}
+.repository-selector-actions button {
+  justify-content: flex-start;
+  border: 0;
+  background: transparent;
+  padding: 8px;
+}
+.repository-selector-actions button:hover {
+  background: var(--hover);
 }

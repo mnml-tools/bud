@@ -4,7 +4,15 @@ import type { GitWorkspace } from '../../hooks/useGitWorkspace'
 import { RepositoryAvatar } from '../atoms/RepositoryAvatar'
 import { RepositorySelectorMenu } from '../molecules/RepositorySelectorMenu'
 
-export function RepositoryTabs({ workspace }: { workspace: GitWorkspace }) {
+export function RepositoryTabs({
+  workspace,
+  onOpenLocal,
+  onClone
+}: {
+  workspace: GitWorkspace
+  onOpenLocal: () => void
+  onClone: () => void
+}) {
   const [open, setOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   const id = useId()
@@ -58,6 +66,8 @@ export function RepositoryTabs({ workspace }: { workspace: GitWorkspace }) {
           trigger={trigger.current}
           onDismiss={dismiss}
           onSelect={(repo) => void workspace.open(repo.path)}
+          onOpenLocal={onOpenLocal}
+          onClone={onClone}
           label="Open repository"
           emptyMessage="All saved repositories are already open."
         />

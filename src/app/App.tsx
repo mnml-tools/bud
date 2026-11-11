@@ -89,7 +89,20 @@ export function App({ request = gitRequest }: { request?: GitRequest }) {
       }
       dialogs={
         <>
-          {dialog === 'switch' && <RepositorySwitcher workspace={workspace} onDismiss={() => setDialog(null)} />}
+          {dialog === 'switch' && (
+            <RepositorySwitcher
+              workspace={workspace}
+              onDismiss={() => setDialog(null)}
+              onOpenLocal={() => {
+                workspace.clearError()
+                setDialog('open')
+              }}
+              onClone={() => {
+                workspace.clearError()
+                setDialog('clone')
+              }}
+            />
+          )}
           {dialog === 'open' && (
             <RepositoryDialog workspace={workspace} request={request} onDismiss={() => setDialog(null)} />
           )}
@@ -122,7 +135,19 @@ export function App({ request = gitRequest }: { request?: GitRequest }) {
         </>
       }
     >
-      {workspace.openedRepositories.length > 0 && <RepositoryTabs workspace={workspace} />}
+      {workspace.openedRepositories.length > 0 && (
+        <RepositoryTabs
+          workspace={workspace}
+          onOpenLocal={() => {
+            workspace.clearError()
+            setDialog('open')
+          }}
+          onClone={() => {
+            workspace.clearError()
+            setDialog('clone')
+          }}
+        />
+      )}
       {workspace.notice && <NoticeToast key={`${repo?.path}:${workspace.notice}`} message={workspace.notice} />}
       {workspace.restoring ? (
         <StartupLoading />

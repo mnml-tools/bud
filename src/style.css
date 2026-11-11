@@ -1963,11 +1963,26 @@ html.changes-resizing * {
 .git-branch-incoming {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  justify-content: center;
+  gap: 1px;
   flex-shrink: 0;
-  color: var(--secondary);
+  height: 18px;
+  padding: 0 5px;
+  margin-right: 5px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 15%, var(--background));
+  color: var(--accent);
   font-size: 10px;
-  padding-right: 5px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.git-branch-row.current .git-branch-incoming {
+  background: color-mix(in srgb, var(--accent) 24%, var(--background));
+  color: var(--accent);
+}
+.git-branch-row .git-branch-incoming svg {
+  color: inherit;
 }
 .git-new-branch-label {
   display: flex;

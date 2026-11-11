@@ -97,7 +97,6 @@ export function GitBranchSidebar({
                     >
                       <GitBranch size={13} />
                       <span>{branch.name}</span>
-                      {branch.current && <small>HEAD</small>}
                     </Button>
                     {!remote && (branch.incomingCommits ?? 0) > 0 && (
                       <span

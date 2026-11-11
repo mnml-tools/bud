@@ -996,6 +996,9 @@ button:focus-visible {
 .git-commit-row.selected {
   background: var(--selected);
 }
+.git-commit-row.above-head {
+  opacity: 0.5;
+}
 .git-commit-row.dimmed {
   opacity: 0.38;
 }

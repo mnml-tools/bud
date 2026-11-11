@@ -54,6 +54,9 @@ export function CommitHistory({
       ),
     [history.commits, query]
   )
+  const headIndex = history.commits.findIndex((commit) =>
+    commit.refs.split(', ').some((ref) => ref === 'HEAD' || ref.startsWith('HEAD -> '))
+  )
   const selectedCommit = history.commits.find((commit) => commit.hash === (focused || selected))
   const start = Math.max(0, Math.floor(scroll / rowHeight) - 10)
   const end = Math.min(history.commits.length, start + Math.ceil(height / rowHeight) + 20)
@@ -130,7 +133,7 @@ export function CommitHistory({
               return (
                 <button
                   key={commit.hash}
-                  className={`git-commit-row${active ? ' selected' : ''}${query && !matching.has(commit.hash) ? ' dimmed' : ''}`}
+                  className={`git-commit-row${active ? ' selected' : ''}${headIndex >= 0 && index < headIndex ? ' above-head' : ''}${query && !matching.has(commit.hash) ? ' dimmed' : ''}`}
                   style={{
                     top: index * rowHeight,
                     height: rowHeight,
@@ -181,6 +184,7 @@ export function CommitHistory({
                   <span className="git-commit-message">
                     {commit.refs
                       .split(', ')
+                      .map((ref) => (ref === 'HEAD' ? '' : ref.replace(/^HEAD -> /, '')))
                       .filter(Boolean)
                       .map((ref) => (
                         <span

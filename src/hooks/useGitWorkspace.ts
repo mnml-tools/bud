@@ -357,13 +357,20 @@ export function useGitWorkspace(request: GitRequest) {
       setNotice(message)
     })
 
-  const branchAction = (branch: string, action: 'new' | 'delete' | 'merge', name?: string) =>
+  const branchAction = (branch: string, action: 'new' | 'delete' | 'merge', name?: string, deleteOrigin = false) =>
     run({ new: 'Creating branch', delete: 'Deleting branch', merge: 'Merging branch' }[action], async () => {
       if (!repository) return
 
       try {
         setRepository(
-          await request<Repository>('git_branch_action', { path: repository.path, branch, action, name: name ?? null })
+          await request<Repository>('git_branch_action', {
+            path: repository.path,
+            branch,
+            action,
+            name: name ?? null,
+            deleteOrigin,
+            key: activeKey?.path ?? null
+          })
         )
         setHistory(await loadHistory(request, repository.path, limit.current))
       } catch (error) {

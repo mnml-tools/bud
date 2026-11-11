@@ -16,6 +16,7 @@ export function BranchActionDialog({
   onDismiss: () => void
 }) {
   const [name, setName] = useState('')
+  const [deleteOrigin, setDeleteOrigin] = useState(false)
   const title = { new: 'New branch', delete: 'Delete branch?', merge: 'Merge branch?' }[action]
   const busy = !!workspace.busy
 
@@ -26,7 +27,7 @@ export function BranchActionDialog({
           event.preventDefault()
           if (busy || (action === 'new' && !name.trim())) return
 
-          if (await workspace.branchAction(branch.name, action, name.trim())) onDismiss()
+          if (await workspace.branchAction(branch.name, action, name.trim(), deleteOrigin)) onDismiss()
         }}
       >
         {action === 'new' ? (
@@ -47,9 +48,22 @@ export function BranchActionDialog({
             </label>
           </>
         ) : action === 'delete' ? (
-          <p>
-            Delete local branch <strong>{branch.name}</strong>? Git will refuse if it contains unmerged commits.
-          </p>
+          <>
+            <p>
+              Delete local branch <strong>{branch.name}</strong>? Git will refuse if it contains unmerged commits.
+            </p>
+            {workspace.repository!.remotes.includes('origin') && (
+              <label className="git-delete-origin-option">
+                <input
+                  type="checkbox"
+                  checked={deleteOrigin}
+                  disabled={busy}
+                  onChange={(event) => setDeleteOrigin(event.target.checked)}
+                />
+                <span>Also delete origin branch</span>
+              </label>
+            )}
+          </>
         ) : (
           <p>
             Merge <strong>{branch.name}</strong> into <strong>{workspace.repository!.currentBranch}</strong>?

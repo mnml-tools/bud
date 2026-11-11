@@ -883,6 +883,8 @@ pub async fn git_branch_action(
     branch: String,
     action: String,
     name: Option<String>,
+    delete_origin: Option<bool>,
+    key: Option<String>,
 ) -> Result<Repository, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let directory = root(&path)?;
@@ -906,7 +908,21 @@ pub async fn git_branch_action(
                 if target.current {
                     return Err("Switch to another branch before deleting this branch.".into());
                 }
+                let delete_origin = delete_origin.unwrap_or(false);
+                if delete_origin && !repo.remotes.iter().any(|remote| remote == "origin") {
+                    return Err("This repository has no origin remote.".into());
+                }
                 git(&directory, &["branch", "-d", "--", &branch])?;
+                if delete_origin {
+                    let result = (|| {
+                        let mut cmd = command(Some(&directory), key.as_deref())?;
+                        cmd.args(["push", "--delete", "--", "origin", &reference]);
+                        execute(cmd)
+                    })();
+                    if let Err(error) = result {
+                        return Err(format!("Local branch '{branch}' was deleted, but deleting origin/{branch} failed: {error}"));
+                    }
+                }
             }
             "merge" => {
                 if target.current || repo.current_branch == "Detached HEAD" {
@@ -1224,6 +1240,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn branch_delete_option_removes_origin_only_when_requested() {
+        let temp = std::env::temp_dir().join(format!("bud-delete-origin-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+        git(&temp, &["init", "-b", "main"]).unwrap();
+        git(&temp, &["config", "user.name", "Bud Test"]).unwrap();
+        git(&temp, &["config", "user.email", "bud@example.test"]).unwrap();
+        git(
+            &temp,
+            &[
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "Initial",
+            ],
+        )
+        .unwrap();
+        git(&temp, &["init", "--bare", "origin.git"]).unwrap();
+        git(&temp, &["remote", "add", "origin", "./origin.git"]).unwrap();
+        let path = temp.to_string_lossy().into_owned();
+        for delete_origin in [false, true] {
+            git(&temp, &["branch", "feature"]).unwrap();
+            git(&temp, &["push", "origin", "feature"]).unwrap();
+            git_branch_action(
+                path.clone(),
+                "feature".into(),
+                "delete".into(),
+                None,
+                Some(delete_origin),
+                None,
+            )
+            .await
+            .unwrap();
+            assert!(git(&temp, &["show-ref", "--verify", "refs/heads/feature"]).is_err());
+            let remote = git(
+                &temp,
+                &["ls-remote", "--heads", "origin", "refs/heads/feature"],
+            )
+            .unwrap();
+            assert_eq!(remote.trim().is_empty(), delete_origin);
+        }
+        std::fs::remove_dir_all(temp).unwrap();
+    }
+
+    #[tokio::test]
     async fn branch_actions_and_origin_incoming_counts() {
         let temp = std::env::temp_dir().join(format!("bud-branches-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&temp);
@@ -1239,15 +1302,22 @@ mod tests {
             "main".into(),
             "new".into(),
             Some("feature".into()),
+            None,
+            None,
         )
         .await
         .unwrap();
         assert_eq!(repo.current_branch, "feature");
-        assert!(
-            git_branch_action(path.clone(), "feature".into(), "delete".into(), None)
-                .await
-                .is_err()
-        );
+        assert!(git_branch_action(
+            path.clone(),
+            "feature".into(),
+            "delete".into(),
+            None,
+            None,
+            None
+        )
+        .await
+        .is_err());
         git(&temp, &["commit", "--allow-empty", "-m", "First feature"]).unwrap();
         git(&temp, &["commit", "--allow-empty", "-m", "Second feature"]).unwrap();
         git(&temp, &["update-ref", "refs/remotes/origin/main", "HEAD"]).unwrap();
@@ -1269,14 +1339,26 @@ mod tests {
             0
         );
         git_checkout(path.clone(), "main".into()).await.unwrap();
-        assert!(
-            git_branch_action(path.clone(), "feature".into(), "delete".into(), None)
-                .await
-                .is_err()
-        );
-        let repo = git_branch_action(path.clone(), "feature".into(), "merge".into(), None)
-            .await
-            .unwrap();
+        assert!(git_branch_action(
+            path.clone(),
+            "feature".into(),
+            "delete".into(),
+            None,
+            None,
+            None
+        )
+        .await
+        .is_err());
+        let repo = git_branch_action(
+            path.clone(),
+            "feature".into(),
+            "merge".into(),
+            None,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
         assert_eq!(repo.current_branch, "main");
         assert_eq!(
             repo.branches
@@ -1286,15 +1368,24 @@ mod tests {
                 .incoming_commits,
             0
         );
-        let repo = git_branch_action(path.clone(), "feature".into(), "delete".into(), None)
-            .await
-            .unwrap();
+        let repo = git_branch_action(
+            path.clone(),
+            "feature".into(),
+            "delete".into(),
+            None,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
         assert!(!repo.branches.iter().any(|branch| branch.name == "feature"));
         assert!(git_branch_action(
             path.clone(),
             "origin/main".into(),
             "new".into(),
-            Some("bad".into())
+            Some("bad".into()),
+            None,
+            None
         )
         .await
         .is_err());
@@ -1302,15 +1393,22 @@ mod tests {
             path.clone(),
             "main".into(),
             "new".into(),
-            Some("--bad".into())
+            Some("--bad".into()),
+            None,
+            None
         )
         .await
         .is_err());
-        assert!(
-            git_branch_action(path.clone(), "main".into(), "merge".into(), None)
-                .await
-                .is_err()
-        );
+        assert!(git_branch_action(
+            path.clone(),
+            "main".into(),
+            "merge".into(),
+            None,
+            None,
+            None
+        )
+        .await
+        .is_err());
         std::fs::remove_dir_all(temp).unwrap();
     }
 

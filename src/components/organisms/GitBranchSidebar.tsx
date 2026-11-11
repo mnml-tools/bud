@@ -221,6 +221,7 @@ export function GitBranchSidebar({
       {menu && (
         <BranchContextMenu
           {...menu}
+          currentBranch={repo.currentBranch}
           busy={!!workspace.busy}
           onDismiss={dismissMenu}
           onAction={(next) => {

@@ -4,6 +4,7 @@ import { useContextMenu } from '../../hooks/useContextMenu'
 
 type Props = {
   branch: Branch
+  currentBranch: string
   x: number
   y: number
   trigger: HTMLButtonElement
@@ -12,7 +13,7 @@ type Props = {
   onAction: (action: 'checkout' | 'new' | 'delete' | 'merge') => void
 }
 
-export function BranchContextMenu({ branch, x, y, trigger, busy, onDismiss, onAction }: Props) {
+export function BranchContextMenu({ branch, currentBranch, x, y, trigger, busy, onDismiss, onAction }: Props) {
   const menu = useContextMenu(onDismiss, trigger)
 
   return createPortal(
@@ -28,12 +29,21 @@ export function BranchContextMenu({ branch, x, y, trigger, busy, onDismiss, onAc
     >
       {!branch.current && (
         <button role="menuitem" disabled={busy} onClick={() => onAction('checkout')}>
-          Change to
+          <span>
+            Change to <span className="git-menu-branch-name">{branch.name}</span>
+          </span>
         </button>
       )}
       <button role="menuitem" disabled={busy} onClick={() => onAction('new')}>
         New branch
       </button>
+      {!branch.current && (
+        <button role="menuitem" disabled={busy} onClick={() => onAction('merge')}>
+          <span>
+            Merge into <span className="git-menu-branch-name">{currentBranch}</span>
+          </span>
+        </button>
+      )}
       <button
         role="menuitem"
         className="git-discard-action"
@@ -42,11 +52,6 @@ export function BranchContextMenu({ branch, x, y, trigger, busy, onDismiss, onAc
       >
         Delete branch
       </button>
-      {!branch.current && (
-        <button role="menuitem" disabled={busy} onClick={() => onAction('merge')}>
-          Merge branch
-        </button>
-      )}
     </div>,
     document.body
   )

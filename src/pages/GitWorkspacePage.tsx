@@ -98,11 +98,11 @@ export function GitWorkspacePage({
             )}
           </Button>
         </div>
-        <div className="git-toolbar-spacer" />
         <span className="git-current-branch">
           <GitBranch size={13} />
           {repo.currentBranch}
         </span>
+        <div className="git-toolbar-spacer" />
         <Button
           disabled={disabled}
           title={`Refresh · ${formatShortcut(resolveShortcut(refreshRepositoryShortcut))}`}

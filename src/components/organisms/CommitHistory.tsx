@@ -1,14 +1,15 @@
-import { CommitContextMenu } from '../molecules/CommitContextMenu'
+import { GitDialog } from '../molecules/GitDialog'
 import { CommitDiffPanel } from './CommitDiffPanel'
 import { AuthorAvatar } from '../atoms/AuthorAvatar'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { GitCommitHorizontal, Search, Tag } from 'lucide-react'
+import { GitCommitHorizontal, Search, Tag, Cloud, Check } from 'lucide-react'
 import { buildCommitGraph, graphColors as lanePalette } from '../../lib/commitGraph'
 import type { History } from '../../types/git'
 import { Button } from '../atoms/Button'
 import { useTheme } from '../../hooks/useTheme'
 
-const rowHeight = 38
+const rowHeight = 28
+const nodeY = rowHeight / 2
 const commitDateFormat = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
   month: 'short',
@@ -43,7 +44,7 @@ export function CommitHistory({
     index === 0 ? 'var(--accent)' : lanePalette[(paletteStart + index) % lanePalette.length]
   )
 
-  const [menu, setMenu] = useState<{ hash: string; x: number; y: number; trigger: HTMLButtonElement } | null>(null)
+  const [checkoutTarget, setCheckoutTarget] = useState<History['commits'][number] | null>(null)
   const [query, setQuery] = useState('')
   const [scroll, setScroll] = useState(0)
   const [height, setHeight] = useState(600)
@@ -137,6 +138,17 @@ export function CommitHistory({
               const row = graph[index]
               const x = (lane: number) => 20 + lane * 18
               const rowGraphWidth = x(Math.max(row.lane, ...row.lines.flatMap((line) => [line.from, line.to]))) + 16
+              const activeBranch = commit.refs
+                .split(', ')
+                .find((ref) => ref.startsWith('HEAD -> '))
+                ?.slice(8)
+              const refs = commit.refs
+                .split(', ')
+                .map((ref) => (ref === 'HEAD' ? '' : ref.replace(/^HEAD -> /, '')))
+                .filter((ref) => Boolean(ref) && ref !== 'origin/HEAD')
+              const syncedBranches = new Set(
+                refs.filter((ref) => !ref.startsWith('tag: ') && refs.includes(`origin/${ref}`))
+              )
               const active = commit.hash === (focused || selected)
 
               return (
@@ -152,16 +164,8 @@ export function CommitHistory({
                     setFocused(commit.hash)
                     setDiffClosed(false)
                   }}
-                  onContextMenu={(event) => {
-                    event.preventDefault()
-                    setMenu({ hash: commit.hash, x: event.clientX, y: event.clientY, trigger: event.currentTarget })
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
-                      event.preventDefault()
-                      const rect = event.currentTarget.getBoundingClientRect()
-                      setMenu({ hash: commit.hash, x: rect.left, y: rect.bottom, trigger: event.currentTarget })
-                    }
+                  onDoubleClick={() => {
+                    if (!busy && index !== headIndex) setCheckoutTarget(commit)
                   }}
                   aria-pressed={active}
                   title={`${commit.hash}\n${commit.subject}`}
@@ -174,8 +178,8 @@ export function CommitHistory({
                           key={`pass${i}`}
                           d={
                             line.endsAtNode
-                              ? `M ${x(line.from)} 0 C ${x(line.from)} 19 ${x(line.to)} 0 ${x(line.to)} 19`
-                              : `M ${x(line.from)} 0 V 38`
+                              ? `M ${x(line.from)} 0 C ${x(line.from)} ${nodeY} ${x(line.to)} 0 ${x(line.to)} ${nodeY}`
+                              : `M ${x(line.from)} 0 V ${rowHeight}`
                           }
                           fill="none"
                           stroke={graphColors[line.color]}
@@ -183,14 +187,14 @@ export function CommitHistory({
                         />
                       ))}
                     {index > 0 && graph[index - 1].lines.some((line) => !line.endsAtNode && line.to === row.lane) && (
-                      <path d={`M ${x(row.lane)} 0 V 19`} stroke={graphColors[row.color]} strokeWidth="2" />
+                      <path d={`M ${x(row.lane)} 0 V ${nodeY}`} stroke={graphColors[row.color]} strokeWidth="2" />
                     )}
                     {row.lines
                       .filter((line) => line.from === row.lane)
                       .map((line, i) => (
                         <path
                           key={`parent${i}`}
-                          d={`M ${x(row.lane)} 19 C ${x(row.lane)} 38 ${x(line.to)} 19 ${x(line.to)} 38`}
+                          d={`M ${x(row.lane)} ${nodeY} C ${x(row.lane)} ${rowHeight} ${x(line.to)} ${nodeY} ${x(line.to)} ${rowHeight}`}
                           fill="none"
                           stroke={graphColors[line.color]}
                           strokeWidth="2"
@@ -198,7 +202,7 @@ export function CommitHistory({
                       ))}
                     <circle
                       cx={x(row.lane)}
-                      cy="19"
+                      cy={nodeY}
                       r={commit.parents.length > 1 ? 6 : 3}
                       stroke={graphColors[row.color]}
                       fill={commit.parents.length > 1 ? 'var(--background)' : graphColors[row.color]}
@@ -206,7 +210,7 @@ export function CommitHistory({
                     />
                     {commit.parents.length > 1 && (
                       <path
-                        d={`M ${x(row.lane) - 2.5} 18 L ${x(row.lane)} 20.5 L ${x(row.lane) + 2.5} 18`}
+                        d={`M ${x(row.lane) - 2.5} ${nodeY - 1} L ${x(row.lane)} ${nodeY + 1.5} L ${x(row.lane) + 2.5} ${nodeY - 1}`}
                         fill="none"
                         stroke={graphColors[row.color]}
                         strokeWidth="1.5"
@@ -216,20 +220,20 @@ export function CommitHistory({
                     )}
                   </svg>
                   <span className="git-commit-message">
-                    {commit.refs
-                      .split(', ')
-                      .map((ref) => (ref === 'HEAD' ? '' : ref.replace(/^HEAD -> /, '')))
-                      .filter(Boolean)
+                    {refs
+                      .filter((ref) => !(ref.startsWith('origin/') && syncedBranches.has(ref.slice(7))))
                       .map((ref) => (
                         <span
                           key={ref}
-                          className={`git-ref${ref.startsWith('tag: ') ? ' git-ref-tag' : ''}`}
-                          aria-label={ref.startsWith('tag: ') ? ref : undefined}
-                          title={ref}
+                          className={`git-ref${ref.startsWith('tag: ') ? ' git-ref-tag' : ''}${syncedBranches.has(ref) ? ' git-ref-synced' : ''}${ref === activeBranch ? ' git-ref-active' : ''}`}
+                          aria-label={syncedBranches.has(ref) ? `${ref}, synced with origin` : ref}
+                          title={syncedBranches.has(ref) ? `${ref} · Synced with origin/${ref}` : ref}
                           style={{ color: ref.startsWith('tag: ') ? '#a17de0' : graphColors[row.color] }}
                         >
+                          {ref === activeBranch && <Check size={11} aria-label="Active branch" />}
                           {ref.startsWith('tag: ') && <Tag size={10} aria-hidden="true" />}
                           {ref.startsWith('tag: ') ? ref.slice(5) : ref}
+                          {syncedBranches.has(ref) && <Cloud size={11} aria-hidden="true" />}
                         </span>
                       ))}
                     <span>{commit.subject}</span>
@@ -264,17 +268,29 @@ export function CommitHistory({
           </div>
         )}
       </div>
-      {menu && (
-        <CommitContextMenu
-          {...menu}
-          disabled={busy || history.commits[headIndex]?.hash === menu.hash}
-          onDismiss={() => setMenu(null)}
-          onCheckout={() => {
-            if (busy) return
-            setMenu(null)
-            onCheckout(menu.hash)
-          }}
-        />
+      {checkoutTarget && (
+        <GitDialog title="Do you want to checkout this commit?" busy={busy} onDismiss={() => setCheckoutTarget(null)}>
+          <p>
+            <code>{checkoutTarget.hash.slice(0, 7)}</code> · {checkoutTarget.subject}
+          </p>
+          <p className="git-hint">This switches to detached HEAD mode.</p>
+          <div className="discard-actions">
+            <Button disabled={busy} onClick={() => setCheckoutTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              className="primary"
+              disabled={busy}
+              onClick={() => {
+                if (busy) return
+                setCheckoutTarget(null)
+                onCheckout(checkoutTarget.hash)
+              }}
+            >
+              Checkout commit
+            </Button>
+          </div>
+        </GitDialog>
       )}
       {selectedCommit && !diffClosed && (
         <CommitDiffPanel commit={selectedCommit} loadDiff={loadDiff} onClose={() => setDiffClosed(true)} />

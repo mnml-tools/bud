@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { GitBranch, Cloud, Search, House, ChevronDown, ChevronRight, ArrowDown } from 'lucide-react'
+import { GitBranch, GitCommitVertical, Cloud, Search, House, ChevronDown, ChevronRight, ArrowDown } from 'lucide-react'
 import type { GitWorkspace } from '../../hooks/useGitWorkspace'
 import { ResizableSidebar } from './ResizableSidebar'
 import { Button } from '../atoms/Button'
@@ -24,6 +24,10 @@ export function GitBranchSidebar({
   const dismissMenu = useCallback(() => setMenu(null), [])
   const [expanded, setExpanded] = useState({ local: true, remote: false })
   const repo = workspace.repository!
+  const detachedHead =
+    repo.currentBranch === 'Detached HEAD'
+      ? workspace.history.commits.find((commit) => commit.refs.split(', ').includes('HEAD'))
+      : undefined
 
   return (
     <ResizableSidebar>
@@ -63,15 +67,29 @@ export function GitBranchSidebar({
                 </span>
                 <span>{branches.length}</span>
               </Button>
-              {isExpanded && branches.length === 0 && (
-                <p className="git-sidebar-empty">
-                  {query
-                    ? 'No matching branches'
-                    : remote
-                      ? 'No remote branches. Try Fetch.'
-                      : 'No local branches yet.'}
-                </p>
+              {isExpanded && !remote && detachedHead && 'head'.includes(query.toLowerCase()) && (
+                <div className="git-branch-row current">
+                  <Button
+                    title={`HEAD · ${detachedHead.hash.slice(0, 7)}`}
+                    aria-pressed={!showingChanges && (!selected || selected === detachedHead.hash)}
+                    onClick={() => onSelect(detachedHead.hash)}
+                  >
+                    <GitCommitVertical size={13} />
+                    <span>HEAD</span>
+                  </Button>
+                </div>
               )}
+              {isExpanded &&
+                branches.length === 0 &&
+                !(!remote && detachedHead && 'head'.includes(query.toLowerCase())) && (
+                  <p className="git-sidebar-empty">
+                    {query
+                      ? 'No matching branches'
+                      : remote
+                        ? 'No remote branches. Try Fetch.'
+                        : 'No local branches yet.'}
+                  </p>
+                )}
               {isExpanded &&
                 branches.map((branch) => (
                   <div className={`git-branch-row${branch.current ? ' current' : ''}`} key={branch.name}>

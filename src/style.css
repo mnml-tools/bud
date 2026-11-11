@@ -993,11 +993,14 @@ button:focus-visible {
   gap: 0;
   font-weight: 400;
 }
-.git-commit-row.selected {
-  background: var(--selected);
+.git-commit-row:hover {
+  background: color-mix(in srgb, var(--hover) 50%, var(--background));
 }
-.git-commit-row.above-head {
-  opacity: 0.5;
+.git-commit-row.selected {
+  background: color-mix(in srgb, var(--hover) 99%, black);
+}
+.git-commit-row.above-head .git-commit-message > span:not(.git-ref) {
+  color: var(--muted);
 }
 .git-commit-row.dimmed {
   opacity: 0.38;
@@ -1013,6 +1016,7 @@ button:focus-visible {
   padding-right: 16px;
 }
 .git-commit-message > span:not(.git-ref) {
+  font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -1037,6 +1041,14 @@ button:focus-visible {
   align-items: center;
   gap: 4px;
 }
+.git-ref-active,
+.git-ref-synced {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.git-ref-active > svg,
+.git-ref-synced > svg,
 .git-ref-tag > svg {
   flex-shrink: 0;
 }
@@ -1455,6 +1467,14 @@ select,
   align-items: center;
   gap: 4px;
 }
+.git-ref-active,
+.git-ref-synced {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.git-ref-active > svg,
+.git-ref-synced > svg,
 .git-ref-tag > svg {
   flex-shrink: 0;
 }

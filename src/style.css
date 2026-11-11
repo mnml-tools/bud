@@ -2557,3 +2557,34 @@ html.changes-resizing * {
 .git-tag-row svg {
   color: #a17de0;
 }
+
+.git-startup-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 240px;
+}
+.git-startup-mark {
+  color: var(--accent);
+}
+.git-startup-loading h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+}
+.git-startup-loading p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .git-startup-loading .git-spinning {
+    animation: none;
+  }
+}

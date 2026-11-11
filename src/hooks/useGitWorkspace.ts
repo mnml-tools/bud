@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Channel, isTauri } from '@tauri-apps/api/core'
+import { loadRepositoryTabs, parseRepositoryTabs } from '../lib/repositoryTabs'
 import type { GitRequest } from '../services/git'
 import { loadHistory, openRepository } from '../services/git'
 import type { History, Repository, SavedRepository, SshKey } from '../types/git'
@@ -26,6 +27,7 @@ export function useGitWorkspace(request: GitRequest) {
   const [defaultKey, setDefaultKey] = useState<string>(() => readSaved('bud.defaultSshKey', ''))
   const [repository, setRepository] = useState<Repository | null>(null)
   const [history, setHistory] = useState<History>({ commits: [], hasMore: false })
+  const [tabsRestored, setTabsRestored] = useState(false)
   const [busy, setBusy] = useState('')
   const [switchingBranch, setSwitchingBranch] = useState('')
   const [error, setError] = useState('')
@@ -43,6 +45,43 @@ export function useGitWorkspace(request: GitRequest) {
   const repositoryPath = repository?.path
   const hasOrigin = repository?.remotes.includes('origin') ?? false
   const keyPath = activeKey?.path
+
+  useEffect(() => {
+    let cancelled = false
+    lock.current = true
+    setBusy('Restoring repositories')
+    const state = parseRepositoryTabs(readSaved('bud.openRepositoryTabs', null))
+
+    void loadRepositoryTabs(request, state).then(({ sessions: restored, active, failed }) => {
+      if (cancelled) return
+
+      for (const session of restored) sessions.current.set(session.repository.path, session)
+      setOpenedRepositories(restored.map((session) => session.repository))
+      if (active) {
+        setRepository(active.repository)
+        setHistory(active.history)
+        setRemote(active.remote)
+        limit.current = active.limit
+      }
+      if (failed) setError(`Could not reopen ${failed} saved ${failed === 1 ? 'repository' : 'repositories'}.`)
+      lock.current = false
+      setBusy('')
+      setTabsRestored(true)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [request])
+
+  useEffect(() => {
+    if (!tabsRestored) return
+
+    persist('bud.openRepositoryTabs', {
+      paths: openedRepositories.map((repo) => repo.path),
+      active: repository?.path ?? null
+    })
+  }, [tabsRestored, openedRepositories, repository?.path])
 
   useEffect(() => {
     if (!repositoryPath || !isTauri()) return
@@ -534,6 +573,7 @@ export function useGitWorkspace(request: GitRequest) {
     request,
     saved,
     openedRepositories,
+    restoring: !tabsRestored,
     closeTab,
     keys,
     defaultKey,

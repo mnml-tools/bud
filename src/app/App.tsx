@@ -26,6 +26,7 @@ import { SettingsDialog, type SettingsSection } from '../components/organisms/Se
 import { GitWorkspacePage } from '../pages/GitWorkspacePage'
 import { NoticeToast } from '../components/molecules/NoticeToast'
 import { ActiveIdentity } from '../components/molecules/ActiveIdentity'
+import { StartupLoading } from '../components/organisms/StartupLoading'
 import { RepositoryTabs } from '../components/organisms/RepositoryTabs'
 
 export function App({ request = gitRequest }: { request?: GitRequest }) {
@@ -34,7 +35,7 @@ export function App({ request = gitRequest }: { request?: GitRequest }) {
   const [dialog, setDialog] = useState<'open' | 'clone' | 'settings' | 'switch' | null>(null)
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('themes')
   const [closeBlocked, setCloseBlocked] = useState(false)
-  const busy = !!workspace.busy
+  const busy = workspace.restoring || !!workspace.busy
   const repo = workspace.repository
 
   const openSettings = (section: SettingsSection = 'themes') => {
@@ -71,7 +72,7 @@ export function App({ request = gitRequest }: { request?: GitRequest }) {
     <AppShell
       variant={repo ? 'workspace' : 'app'}
       onSettings={() => openSettings()}
-      status={busy ? workspace.busy : 'Local workspace'}
+      status={workspace.restoring ? 'Restoring repositories' : busy ? workspace.busy : 'Local workspace'}
       footerLeft={
         <>
           {repo
@@ -103,7 +104,9 @@ export function App({ request = gitRequest }: { request?: GitRequest }) {
               </div>
             </GitDialog>
           )}
-          {update && !dialog && !workspace.error && <UpdateDialog update={update} onDismiss={dismiss} />}
+          {update && !workspace.restoring && !dialog && !workspace.error && (
+            <UpdateDialog update={update} onDismiss={dismiss} />
+          )}
           {dialog === 'settings' && (
             <SettingsDialog
               workspace={workspace}
@@ -121,7 +124,9 @@ export function App({ request = gitRequest }: { request?: GitRequest }) {
     >
       {workspace.openedRepositories.length > 0 && <RepositoryTabs workspace={workspace} />}
       {workspace.notice && <NoticeToast key={`${repo?.path}:${workspace.notice}`} message={workspace.notice} />}
-      {repo ? (
+      {workspace.restoring ? (
+        <StartupLoading />
+      ) : repo ? (
         <GitWorkspacePage
           key={repo.path}
           workspace={workspace}

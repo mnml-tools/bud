@@ -380,6 +380,53 @@ export function useGitWorkspace(request: GitRequest) {
       }
     })
 
+  const createTag = (hash: string, name: string, pushOrigin = false) =>
+    run('Creating tag', async () => {
+      if (!repository) return
+
+      setRepository(await request<Repository>('git_create_tag', { path: repository.path, hash, name }))
+      setHistory(await loadHistory(request, repository.path, limit.current))
+      if (pushOrigin) {
+        try {
+          await request('git_push_tag', { path: repository.path, name, key: activeKey?.path ?? null })
+          setNotice(`Tag ${name} created and pushed to origin.`)
+        } catch (error) {
+          setError(
+            `Tag ${name} was created locally, but pushing to origin failed: ${String(error instanceof Error ? error.message : error)}`
+          )
+        }
+      }
+    })
+
+  const pushTag = (name: string) =>
+    run('Pushing tag', async () => {
+      if (!repository) return
+
+      await request('git_push_tag', { path: repository.path, name, key: activeKey?.path ?? null })
+      setNotice(`Tag ${name} pushed to origin.`)
+    })
+
+  const deleteTag = (name: string, deleteOrigin: boolean) =>
+    run('Deleting tag', async () => {
+      if (!repository) return
+
+      try {
+        setRepository(
+          await request<Repository>('git_delete_tag', {
+            path: repository.path,
+            name,
+            deleteOrigin,
+            key: activeKey?.path ?? null
+          })
+        )
+        setHistory(await loadHistory(request, repository.path, limit.current))
+      } catch (error) {
+        setRepository(await openRepository(request, repository.path))
+        setHistory(await loadHistory(request, repository.path, limit.current))
+        throw error
+      }
+    })
+
   const chooseKey = (keyId: string) => {
     if (!repository) return
 
@@ -510,6 +557,9 @@ export function useGitWorkspace(request: GitRequest) {
     checkoutCommit,
     remoteAction,
     branchAction,
+    deleteTag,
+    pushTag,
+    createTag,
     fileDiff,
     commitDiff: (hash: string) => request<string>('git_commit_diff', { path: repository!.path, hash }),
     imageDiff,

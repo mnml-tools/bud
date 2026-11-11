@@ -16,6 +16,7 @@ pub struct Repository {
     dirty: bool,
     changes: Vec<ChangedFile>,
     branches: Vec<Branch>,
+    tags: Vec<Tag>,
     remotes: Vec<String>,
     outgoing_commits: std::collections::HashMap<String, usize>,
     github_repo: Option<String>,
@@ -58,6 +59,12 @@ struct Branch {
     current: bool,
     incoming_commits: usize,
     upstream_gone: bool,
+}
+
+#[derive(Serialize)]
+struct Tag {
+    name: String,
+    hash: String,
 }
 
 #[derive(Serialize)]
@@ -236,9 +243,11 @@ fn inspect(path: &str) -> Result<Repository, String> {
         &[
             "for-each-ref",
             "--sort=refname",
-            "--format=%(refname)%09%(objectname)%09%(HEAD)%09%(symref)%09%(upstream)",
+            "--sort=-creatordate",
+            "--format=%(refname)%09%(objectname)%09%(HEAD)%09%(symref)%09%(upstream)%09%(objecttype)%09%(*objecttype)%09%(*objectname)",
             "refs/heads",
             "refs/remotes",
+            "refs/tags",
         ],
     )?;
     let ref_names: std::collections::HashSet<&str> = refs
@@ -249,7 +258,7 @@ fn inspect(path: &str) -> Result<Repository, String> {
         .lines()
         .filter_map(|line| {
             let fields: Vec<_> = line.split('\t').collect();
-            if fields.len() < 4 || !fields[3].is_empty() {
+            if fields.len() < 4 || !fields[3].is_empty() || fields[0].starts_with("refs/tags/") {
                 return None;
             }
             let remote = fields[0].starts_with("refs/remotes/");
@@ -288,6 +297,26 @@ fn inspect(path: &str) -> Result<Repository, String> {
             })
         })
         .collect();
+    let tags = refs
+        .lines()
+        .filter_map(|line| {
+            let fields: Vec<_> = line.split('\t').collect();
+            if !fields[0].starts_with("refs/tags/") {
+                return None;
+            }
+            let hash = if fields.get(5) == Some(&"commit") {
+                fields[1]
+            } else if fields.get(6) == Some(&"commit") {
+                fields[7]
+            } else {
+                return None;
+            };
+            Some(Tag {
+                name: fields[0].trim_start_matches("refs/tags/").into(),
+                hash: hash.into(),
+            })
+        })
+        .collect();
     let remotes: Vec<String> = git(&directory, &["remote"])?
         .lines()
         .map(String::from)
@@ -322,6 +351,7 @@ fn inspect(path: &str) -> Result<Repository, String> {
         dirty: !changes.is_empty(),
         changes,
         branches,
+        tags,
         remotes,
         outgoing_commits,
         github_repo,
@@ -948,6 +978,112 @@ pub async fn git_branch_action(
 }
 
 #[tauri::command]
+pub async fn git_create_tag(
+    path: String,
+    hash: String,
+    name: String,
+) -> Result<Repository, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = root(&path)?;
+        if name.starts_with('-')
+            || git(
+                &directory,
+                &["check-ref-format", &format!("refs/tags/{name}")],
+            )
+            .is_err()
+        {
+            return Err("Enter a valid tag name.".into());
+        }
+        if !matches!(hash.len(), 40 | 64) || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("Choose a valid commit.".into());
+        }
+        let commit = git(
+            &directory,
+            &["rev-parse", "--verify", &format!("{hash}^{{commit}}")],
+        )?;
+        git(
+            &directory,
+            &[
+                "-c",
+                "tag.gpgsign=false",
+                "tag",
+                "--no-sign",
+                "--",
+                &name,
+                commit.trim(),
+            ],
+        )?;
+        inspect(&path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn git_push_tag(path: String, name: String, key: Option<String>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = root(&path)?;
+        let reference = format!("refs/tags/{name}");
+        if name.starts_with('-') || git(&directory, &["check-ref-format", &reference]).is_err() {
+            return Err("Choose a valid tag.".into());
+        }
+        git(&directory, &["show-ref", "--verify", "--quiet", &reference])?;
+        if !git(&directory, &["remote"])?
+            .lines()
+            .any(|remote| remote == "origin")
+        {
+            return Err("This repository has no origin remote.".into());
+        }
+        let mut cmd = command(Some(&directory), key.as_deref())?;
+        cmd.args(["push", "--", "origin", &format!("{reference}:{reference}")]);
+        execute(cmd)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn git_delete_tag(
+    path: String,
+    name: String,
+    delete_origin: bool,
+    key: Option<String>,
+) -> Result<Repository, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let directory = root(&path)?;
+        let reference = format!("refs/tags/{name}");
+        if name.starts_with('-') || git(&directory, &["check-ref-format", &reference]).is_err() {
+            return Err("Choose a valid tag.".into());
+        }
+        git(&directory, &["show-ref", "--verify", "--quiet", &reference])?;
+        if delete_origin
+            && !git(&directory, &["remote"])?
+                .lines()
+                .any(|remote| remote == "origin")
+        {
+            return Err("This repository has no origin remote.".into());
+        }
+        git(&directory, &["tag", "-d", "--", &name])?;
+        if delete_origin {
+            let result = (|| {
+                let mut cmd = command(Some(&directory), key.as_deref())?;
+                cmd.args(["push", "--delete", "--", "origin", &reference]);
+                execute(cmd)
+            })();
+            if let Err(error) = result {
+                return Err(format!(
+                    "Local tag '{name}' was deleted, but deleting the origin tag failed: {error}"
+                ));
+            }
+        }
+        inspect(&path)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
 pub async fn git_checkout(path: String, branch: String) -> Result<Repository, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let directory = root(&path)?;
@@ -1295,6 +1431,132 @@ mod tests {
         std::fs::remove_dir_all(temp).unwrap();
     }
 
+    #[tokio::test]
+    async fn tags_sort_newest_first_and_delete_origin_only_when_requested() {
+        let temp = std::env::temp_dir().join(format!("bud-delete-tag-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&temp);
+        std::fs::create_dir_all(&temp).unwrap();
+        git(&temp, &["init", "-b", "main"]).unwrap();
+        git(&temp, &["config", "user.name", "Bud Test"]).unwrap();
+        git(&temp, &["config", "user.email", "bud@example.test"]).unwrap();
+        git(
+            &temp,
+            &[
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "Initial",
+            ],
+        )
+        .unwrap();
+        git(&temp, &["init", "--bare", "origin.git"]).unwrap();
+        git(&temp, &["remote", "add", "origin", "./origin.git"]).unwrap();
+        for (name, date) in [
+            ("a-old", "2025-01-01T12:00:00Z"),
+            ("z-new", "2026-01-01T12:00:00Z"),
+        ] {
+            let mut cmd = command(Some(&temp), None).unwrap();
+            cmd.env("GIT_COMMITTER_DATE", date).args([
+                "-c",
+                "tag.gpgsign=false",
+                "tag",
+                "-a",
+                name,
+                "-m",
+                name,
+            ]);
+            execute(cmd).unwrap();
+        }
+        let path = temp.to_string_lossy().into_owned();
+        assert_eq!(
+            inspect(&path)
+                .unwrap()
+                .tags
+                .iter()
+                .map(|tag| tag.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["z-new", "a-old"]
+        );
+        let original = git(&temp, &["rev-parse", "HEAD"])
+            .unwrap()
+            .trim()
+            .to_string();
+        git(
+            &temp,
+            &[
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "Later",
+            ],
+        )
+        .unwrap();
+        git_create_tag(path.clone(), original.clone(), "from-commit".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            git(&temp, &["rev-parse", "refs/tags/from-commit"])
+                .unwrap()
+                .trim(),
+            original
+        );
+        assert!(
+            git_create_tag(path.clone(), original.clone(), "from-commit".into())
+                .await
+                .is_err()
+        );
+        assert!(
+            git_create_tag(path.clone(), original.clone(), "bad name".into())
+                .await
+                .is_err()
+        );
+        assert!(git_create_tag(path.clone(), "--bad".into(), "safe".into())
+            .await
+            .is_err());
+        git(&temp, &["tag", "unrelated"]).unwrap();
+        git_push_tag(path.clone(), "z-new".into(), None)
+            .await
+            .unwrap();
+        git_push_tag(path.clone(), "a-old".into(), None)
+            .await
+            .unwrap();
+        assert!(git(
+            &temp,
+            &["ls-remote", "--tags", "origin", "refs/tags/unrelated"]
+        )
+        .unwrap()
+        .trim()
+        .is_empty());
+        assert!(git_push_tag(path.clone(), "--bad".into(), None)
+            .await
+            .is_err());
+        for (name, delete_origin) in [("z-new", false), ("a-old", true)] {
+            let repo = git_delete_tag(path.clone(), name.into(), delete_origin, None)
+                .await
+                .unwrap();
+            assert!(!repo.tags.iter().any(|tag| tag.name == name));
+            let remote = git(
+                &temp,
+                &[
+                    "ls-remote",
+                    "--tags",
+                    "origin",
+                    &format!("refs/tags/{name}"),
+                ],
+            )
+            .unwrap();
+            assert_eq!(remote.trim().is_empty(), delete_origin);
+        }
+        assert!(git_delete_tag(path.clone(), "--bad".into(), false, None)
+            .await
+            .is_err());
+        std::fs::remove_dir_all(temp).unwrap();
+    }
+
     #[test]
     fn warns_only_when_a_configured_upstream_is_missing() {
         let temp = std::env::temp_dir().join(format!("bud-upstream-gone-{}", std::process::id()));
@@ -1319,7 +1581,29 @@ mod tests {
         git(&temp, &["branch", "local-only"]).unwrap();
         git(&temp, &["update-ref", "refs/remotes/origin/main", "HEAD"]).unwrap();
         git(&temp, &["branch", "--set-upstream-to=origin/main", "main"]).unwrap();
+        git(&temp, &["tag", "lightweight"]).unwrap();
+        git(
+            &temp,
+            &[
+                "-c",
+                "tag.gpgsign=false",
+                "tag",
+                "-a",
+                "annotated",
+                "-m",
+                "Release",
+            ],
+        )
+        .unwrap();
         let path = temp.to_string_lossy().into_owned();
+        let repo = inspect(&path).unwrap();
+        let head = git(&temp, &["rev-parse", "HEAD"]).unwrap();
+        assert_eq!(repo.tags.len(), 2);
+        assert!(repo.tags.iter().all(|tag| tag.hash == head.trim()));
+        assert!(!repo
+            .branches
+            .iter()
+            .any(|branch| branch.name == "annotated" || branch.name == "lightweight"));
         assert!(inspect(&path)
             .unwrap()
             .branches

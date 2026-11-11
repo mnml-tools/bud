@@ -1,7 +1,9 @@
+import { CommitContextMenu } from '../molecules/CommitContextMenu'
+import { NewTagDialog } from './NewTagDialog'
 import { GitDialog } from '../molecules/GitDialog'
 import { CommitDiffPanel } from './CommitDiffPanel'
 import { AuthorAvatar } from '../atoms/AuthorAvatar'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GitCommitHorizontal, Search, Tag, Cloud, Check } from 'lucide-react'
 import { buildCommitGraph, graphColors as lanePalette } from '../../lib/commitGraph'
 import type { History } from '../../types/git'
@@ -26,6 +28,8 @@ export function CommitHistory({
   busy,
   onMore,
   onCheckout,
+  onCreateTag,
+  canPushTags,
   filterRef,
   githubRepo
 }: {
@@ -34,6 +38,8 @@ export function CommitHistory({
   githubRepo?: string
   selected: string
   busy: boolean
+  canPushTags: boolean
+  onCreateTag: (hash: string, name: string, pushOrigin: boolean) => Promise<boolean>
   onCheckout: (hash: string) => void
   onMore: () => void
   filterRef: React.RefObject<HTMLInputElement | null>
@@ -44,6 +50,9 @@ export function CommitHistory({
     index === 0 ? 'var(--accent)' : lanePalette[(paletteStart + index) % lanePalette.length]
   )
 
+  const [menu, setMenu] = useState<{ hash: string; x: number; y: number; trigger: HTMLButtonElement } | null>(null)
+  const dismissMenu = useCallback(() => setMenu(null), [])
+  const [tagTarget, setTagTarget] = useState<History['commits'][number] | null>(null)
   const [checkoutTarget, setCheckoutTarget] = useState<History['commits'][number] | null>(null)
   const [query, setQuery] = useState('')
   const [scroll, setScroll] = useState(0)
@@ -164,6 +173,17 @@ export function CommitHistory({
                     setFocused(commit.hash)
                     setDiffClosed(false)
                   }}
+                  onContextMenu={(event) => {
+                    event.preventDefault()
+                    setMenu({ hash: commit.hash, x: event.clientX, y: event.clientY, trigger: event.currentTarget })
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                      event.preventDefault()
+                      const rect = event.currentTarget.getBoundingClientRect()
+                      setMenu({ hash: commit.hash, x: rect.left, y: rect.bottom, trigger: event.currentTarget })
+                    }
+                  }}
                   onDoubleClick={() => {
                     if (!busy && index !== headIndex) setCheckoutTarget(commit)
                   }}
@@ -268,6 +288,33 @@ export function CommitHistory({
           </div>
         )}
       </div>
+      {menu && (
+        <CommitContextMenu
+          {...menu}
+          busy={busy}
+          isHead={history.commits[headIndex]?.hash === menu.hash}
+          onDismiss={dismissMenu}
+          onCheckout={() => {
+            const commit = history.commits.find((item) => item.hash === menu.hash)
+            setMenu(null)
+            if (commit && !busy) setCheckoutTarget(commit)
+          }}
+          onNewTag={() => {
+            const commit = history.commits.find((item) => item.hash === menu.hash)
+            setMenu(null)
+            if (commit && !busy) setTagTarget(commit)
+          }}
+        />
+      )}
+      {tagTarget && (
+        <NewTagDialog
+          commit={tagTarget}
+          busy={busy}
+          canPush={canPushTags}
+          onCreate={onCreateTag}
+          onDismiss={() => setTagTarget(null)}
+        />
+      )}
       {checkoutTarget && (
         <GitDialog title="Do you want to checkout this commit?" busy={busy} onDismiss={() => setCheckoutTarget(null)}>
           <p>

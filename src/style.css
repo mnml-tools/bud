@@ -2553,3 +2553,7 @@ html.changes-resizing * {
 .git-branch-warning:focus-visible .git-branch-warning-tooltip {
   display: block;
 }
+
+.git-tag-row svg {
+  color: #a17de0;
+}

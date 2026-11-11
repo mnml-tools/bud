@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import {
+  Tag,
   GitBranch,
   GitCommitVertical,
   LoaderCircle,
@@ -17,6 +18,8 @@ import { Button } from '../atoms/Button'
 import type { Branch } from '../../types/git'
 import { BranchContextMenu } from '../molecules/BranchContextMenu'
 import { BranchActionDialog } from './BranchActionDialog'
+import { TagContextMenu } from '../molecules/TagContextMenu'
+import { DeleteTagDialog } from './DeleteTagDialog'
 
 export function GitBranchSidebar({
   workspace,
@@ -30,11 +33,17 @@ export function GitBranchSidebar({
   onSelect: (hash: string) => void
 }) {
   const [query, setQuery] = useState('')
+  const [tagMenu, setTagMenu] = useState<{ name: string; x: number; y: number; trigger: HTMLButtonElement } | null>(
+    null
+  )
+  const dismissTagMenu = useCallback(() => setTagMenu(null), [])
+  const [deletingTag, setDeletingTag] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ branch: Branch; x: number; y: number; trigger: HTMLButtonElement } | null>(null)
   const [action, setAction] = useState<{ branch: Branch; action: 'new' | 'delete' | 'merge' } | null>(null)
   const dismissMenu = useCallback(() => setMenu(null), [])
-  const [expanded, setExpanded] = useState({ local: true, remote: false })
+  const [expanded, setExpanded] = useState({ local: true, remote: false, tags: false })
   const repo = workspace.repository!
+  const tags = (repo.tags ?? []).filter((tag) => tag.name.toLowerCase().includes(query.toLowerCase()))
   const detachedHead =
     repo.currentBranch === 'Detached HEAD'
       ? workspace.history.commits.find((commit) => commit.refs.split(', ').includes('HEAD'))
@@ -51,8 +60,8 @@ export function GitBranchSidebar({
         <label className="git-branch-search">
           <Search size={13} />
           <input
-            aria-label="Filter branches"
-            placeholder="Find a branch…"
+            aria-label="Filter branches and tags"
+            placeholder="Find a branch or tag…"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -118,12 +127,14 @@ export function GitBranchSidebar({
                       onContextMenu={(event) => {
                         if (remote) return
                         event.preventDefault()
+                        setTagMenu(null)
                         setMenu({ branch, x: event.clientX, y: event.clientY, trigger: event.currentTarget })
                       }}
                       onKeyDown={(event) => {
                         if (!remote && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) {
                           event.preventDefault()
                           const rect = event.currentTarget.getBoundingClientRect()
+                          setTagMenu(null)
                           setMenu({ branch, x: rect.left, y: rect.bottom, trigger: event.currentTarget })
                         }
                       }}
@@ -163,6 +174,49 @@ export function GitBranchSidebar({
             </section>
           )
         })}
+        <section className="git-branch-group">
+          <Button
+            className="git-section-heading git-branch-toggle"
+            aria-expanded={expanded.tags}
+            onClick={() => setExpanded((current) => ({ ...current, tags: !current.tags }))}
+          >
+            <span>
+              {expanded.tags ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+              <Tag size={12} />
+              TAGS
+            </span>
+            <span>{tags.length}</span>
+          </Button>
+          {expanded.tags && tags.length === 0 && (
+            <p className="git-sidebar-empty">{query ? 'No matching tags' : 'No tags yet.'}</p>
+          )}
+          {expanded.tags &&
+            tags.map((tag) => (
+              <div className="git-branch-row git-tag-row" key={tag.name}>
+                <Button
+                  title={`${tag.name} · ${tag.hash.slice(0, 7)}`}
+                  aria-pressed={!showingChanges && selected === tag.hash}
+                  onClick={() => onSelect(tag.hash)}
+                  onContextMenu={(event) => {
+                    event.preventDefault()
+                    setMenu(null)
+                    setTagMenu({ name: tag.name, x: event.clientX, y: event.clientY, trigger: event.currentTarget })
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+                      event.preventDefault()
+                      const rect = event.currentTarget.getBoundingClientRect()
+                      setMenu(null)
+                      setTagMenu({ name: tag.name, x: rect.left, y: rect.bottom, trigger: event.currentTarget })
+                    }
+                  }}
+                >
+                  <Tag size={13} />
+                  <span>{tag.name}</span>
+                </Button>
+              </div>
+            ))}
+        </section>
       </div>
       {menu && (
         <BranchContextMenu
@@ -176,6 +230,26 @@ export function GitBranchSidebar({
             else setAction({ branch, action: next })
           }}
         />
+      )}
+      {tagMenu && (
+        <TagContextMenu
+          {...tagMenu}
+          canPush={repo.remotes.includes('origin')}
+          onPush={() => {
+            const name = tagMenu.name
+            setTagMenu(null)
+            void workspace.pushTag(name)
+          }}
+          busy={!!workspace.busy}
+          onDismiss={dismissTagMenu}
+          onDelete={() => {
+            setDeletingTag(tagMenu.name)
+            setTagMenu(null)
+          }}
+        />
+      )}
+      {deletingTag !== null && (
+        <DeleteTagDialog workspace={workspace} name={deletingTag} onDismiss={() => setDeletingTag(null)} />
       )}
       {action && <BranchActionDialog {...action} workspace={workspace} onDismiss={() => setAction(null)} />}
     </ResizableSidebar>

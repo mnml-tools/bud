@@ -17,6 +17,7 @@ export type Repository = {
   currentBranch: string
   dirty: boolean
   changes?: { path: string; status: string; originalPath: string | null }[]
+  tags?: { name: string; hash: string }[]
   branches: Branch[]
   remotes: string[]
   outgoingCommits?: Record<string, number>

@@ -136,6 +136,8 @@ export function GitWorkspacePage({
               selected={selected}
               busy={disabled}
               onMore={() => void workspace.more()}
+              onCreateTag={workspace.createTag}
+              canPushTags={repo.remotes.includes('origin')}
               onCheckout={(hash) => void workspace.checkoutCommit(hash)}
               filterRef={filterRef}
             />

@@ -1735,6 +1735,16 @@ select,
 .git-file-context-menu button:focus-visible {
   background: var(--hover);
 }
+.git-branch-context-menu {
+  width: 260px;
+  max-width: calc(100vw - 8px);
+}
+.git-branch-context-menu button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .git-discard-action {
   color: #c44b46;
 }

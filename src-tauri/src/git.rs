@@ -888,9 +888,21 @@ pub async fn git_remote(
             "fetch" => {
                 cmd.args(["fetch", "--prune", "--", &remote]);
             }
-            "pull" => {
+            "pull" | "pull-merge" | "pull-rebase" => {
                 let branch = git(&directory, &["symbolic-ref", "--quiet", "--short", "HEAD"])?;
-                cmd.args(["pull", "--ff-only", "--", &remote, branch.trim()]);
+                cmd.arg("pull");
+                match action.as_str() {
+                    "pull-merge" => {
+                        cmd.args(["--no-rebase", "--ff", "--no-edit"]);
+                    }
+                    "pull-rebase" => {
+                        cmd.args(["--rebase", "--ff"]);
+                    }
+                    _ => {
+                        cmd.arg("--ff-only");
+                    }
+                }
+                cmd.args(["--", &remote, branch.trim()]);
             }
             "push" => {
                 let branch = git(&directory, &["symbolic-ref", "--quiet", "--short", "HEAD"])?;
@@ -904,10 +916,16 @@ pub async fn git_remote(
             }
             _ => return Err("Unsupported Git action.".into()),
         }
-        execute(cmd)?;
+        execute(cmd).map_err(|error| {
+            if action == "pull" && error.contains("Not possible to fast-forward") {
+                format!("PULL_DIVERGED: {error}")
+            } else {
+                error
+            }
+        })?;
         Ok(match action.as_str() {
             "fetch" => "Remote branches updated.",
-            "pull" => "Branch pulled successfully.",
+            "pull" | "pull-merge" | "pull-rebase" => "Branch pulled successfully.",
             _ => "Branch pushed successfully.",
         }
         .into())
@@ -943,7 +961,7 @@ pub async fn git_branch_action(
                 git(&directory, &["check-ref-format", "--branch", &name])?;
                 git(&directory, &["switch", "-c", &name, &reference])?;
             }
-            "delete" => {
+            "delete" | "force-delete" => {
                 if target.current {
                     return Err("Switch to another branch before deleting this branch.".into());
                 }
@@ -951,7 +969,14 @@ pub async fn git_branch_action(
                 if delete_origin && !repo.remotes.iter().any(|remote| remote == "origin") {
                     return Err("This repository has no origin remote.".into());
                 }
-                git(&directory, &["branch", "-d", "--", &branch])?;
+                let flag = if action == "force-delete" { "-D" } else { "-d" };
+                git(&directory, &["branch", flag, "--", &branch]).map_err(|error| {
+                    if action == "delete" && error.contains("is not fully merged") {
+                        format!("BRANCH_NOT_MERGED: {error}")
+                    } else {
+                        error
+                    }
+                })?;
                 if delete_origin {
                     let result = (|| {
                         let mut cmd = command(Some(&directory), key.as_deref())?;
@@ -1692,6 +1717,43 @@ mod tests {
         )
         .await
         .is_err());
+        // A local-only, unmerged branch requires an explicit force action.
+        git(&temp, &["branch", "unmerged", "feature"]).unwrap();
+        let error = git_branch_action(
+            path.clone(),
+            "unmerged".into(),
+            "delete".into(),
+            None,
+            None,
+            None,
+        )
+        .await
+        .err()
+        .unwrap();
+        assert!(error.starts_with("BRANCH_NOT_MERGED:"));
+        assert!(git(&temp, &["show-ref", "--verify", "refs/heads/unmerged"]).is_ok());
+        let repo = git_branch_action(
+            path.clone(),
+            "unmerged".into(),
+            "force-delete".into(),
+            None,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        assert!(!repo.branches.iter().any(|branch| branch.name == "unmerged"));
+        assert_eq!(repo.current_branch, "main");
+        assert!(git_branch_action(
+            path.clone(),
+            "main".into(),
+            "force-delete".into(),
+            None,
+            None,
+            None,
+        )
+        .await
+        .is_err());
         let repo = git_branch_action(
             path.clone(),
             "feature".into(),
@@ -2061,12 +2123,55 @@ mod tests {
         )
         .unwrap();
         git(upstream_directory, &["push", "origin", "main"]).unwrap();
-        assert!(
-            git_remote(repo.path.clone(), "pull".into(), "origin".into(), None)
-                .await
-                .is_err()
-        );
+        let error = git_remote(repo.path.clone(), "pull".into(), "origin".into(), None)
+            .await
+            .err()
+            .unwrap();
+        assert!(error.starts_with("PULL_DIVERGED:"));
         assert_eq!(git(directory, &["rev-parse", "HEAD"]).unwrap(), local_head);
+        // Explicit strategies override a user's fast-forward-only pull setting.
+        git(directory, &["config", "pull.ff", "only"]).unwrap();
+        git_remote(
+            repo.path.clone(),
+            "pull-merge".into(),
+            "origin".into(),
+            None,
+        )
+        .await
+        .unwrap();
+        let parents = git(directory, &["rev-list", "--parents", "-n", "1", "HEAD"]).unwrap();
+        assert_eq!(parents.split_whitespace().count(), 3);
+        git(
+            directory,
+            &["merge-base", "--is-ancestor", local_head.trim(), "HEAD"],
+        )
+        .unwrap();
+        git(
+            directory,
+            &["merge-base", "--is-ancestor", "origin/main", "HEAD"],
+        )
+        .unwrap();
+        git(directory, &["reset", "--hard", local_head.trim()]).unwrap();
+        git_remote(
+            repo.path.clone(),
+            "pull-rebase".into(),
+            "origin".into(),
+            None,
+        )
+        .await
+        .unwrap();
+        git(
+            directory,
+            &["merge-base", "--is-ancestor", "origin/main", "HEAD"],
+        )
+        .unwrap();
+        assert_ne!(git(directory, &["rev-parse", "HEAD"]).unwrap(), local_head);
+        assert_eq!(
+            git(directory, &["log", "-1", "--format=%s"])
+                .unwrap()
+                .trim(),
+            "Local update"
+        );
         git(directory, &["branch", "feature"]).unwrap();
         let switched = git_checkout(repo.path.clone(), "feature".into())
             .await

@@ -21,14 +21,14 @@ export function BranchContextMenu({ branch, currentBranch, x, y, trigger, busy, 
       ref={menu}
       role="menu"
       aria-label={`Branch actions: ${branch.name}`}
-      className="git-file-context-menu"
+      className="git-file-context-menu git-branch-context-menu"
       style={{
-        left: Math.max(4, Math.min(x, window.innerWidth - 208)),
+        left: Math.max(4, Math.min(x, window.innerWidth - 268)),
         top: Math.max(4, Math.min(y, window.innerHeight - 150))
       }}
     >
       {!branch.current && (
-        <button role="menuitem" disabled={busy} onClick={() => onAction('checkout')}>
+        <button role="menuitem" title={`Change to ${branch.name}`} disabled={busy} onClick={() => onAction('checkout')}>
           <span>
             Change to <span className="git-menu-branch-name">{branch.name}</span>
           </span>
@@ -38,7 +38,7 @@ export function BranchContextMenu({ branch, currentBranch, x, y, trigger, busy, 
         New branch
       </button>
       {!branch.current && (
-        <button role="menuitem" disabled={busy} onClick={() => onAction('merge')}>
+        <button role="menuitem" title={`Merge into ${currentBranch}`} disabled={busy} onClick={() => onAction('merge')}>
           <span>
             Merge into <span className="git-menu-branch-name">{currentBranch}</span>
           </span>

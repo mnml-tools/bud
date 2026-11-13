@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import {
   Tag,
+  Folder,
   GitBranch,
   GitCommitVertical,
   LoaderCircle,
@@ -12,6 +13,7 @@ import {
   TriangleAlert,
   ArrowDown
 } from 'lucide-react'
+import { branchRows } from '../../lib/branchTree'
 import type { GitWorkspace } from '../../hooks/useGitWorkspace'
 import { ResizableSidebar } from './ResizableSidebar'
 import { Button } from '../atoms/Button'
@@ -42,6 +44,7 @@ export function GitBranchSidebar({
   const [action, setAction] = useState<{ branch: Branch; action: 'new' | 'delete' | 'merge' } | null>(null)
   const dismissMenu = useCallback(() => setMenu(null), [])
   const [expanded, setExpanded] = useState({ local: true, remote: false, tags: false })
+  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set())
   const repo = workspace.repository!
   const tags = (repo.tags ?? []).filter((tag) => tag.name.toLowerCase().includes(query.toLowerCase()))
   const detachedHead =
@@ -90,6 +93,7 @@ export function GitBranchSidebar({
               {isExpanded && !remote && detachedHead && 'head'.includes(query.toLowerCase()) && (
                 <div className="git-branch-row current">
                   <Button
+                    style={{ paddingLeft: 23 }}
                     title={`HEAD · ${detachedHead.hash.slice(0, 7)}`}
                     aria-pressed={!showingChanges && (!selected || selected === detachedHead.hash)}
                     onClick={() => onSelect(detachedHead.hash)}
@@ -111,66 +115,111 @@ export function GitBranchSidebar({
                   </p>
                 )}
               {isExpanded &&
-                branches.map((branch) => (
-                  <div
-                    className={`git-branch-row${(!branch.remote && workspace.switchingBranch ? workspace.switchingBranch === branch.name : branch.current) ? ' current' : ''}`}
-                    key={branch.name}
-                  >
-                    <Button
-                      aria-busy={!remote && workspace.switchingBranch === branch.name}
-                      title={`${branch.name} · ${branch.hash.slice(0, 7)}`}
-                      aria-pressed={!showingChanges && selected === branch.hash}
-                      onClick={() => onSelect(branch.hash)}
-                      onDoubleClick={() => {
-                        if (!remote && !branch.current && !workspace.busy) void workspace.checkout(branch.name)
-                      }}
-                      onContextMenu={(event) => {
-                        if (remote) return
-                        event.preventDefault()
-                        setTagMenu(null)
-                        setMenu({ branch, x: event.clientX, y: event.clientY, trigger: event.currentTarget })
-                      }}
-                      onKeyDown={(event) => {
-                        if (!remote && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) {
-                          event.preventDefault()
-                          const rect = event.currentTarget.getBoundingClientRect()
-                          setTagMenu(null)
-                          setMenu({ branch, x: rect.left, y: rect.bottom, trigger: event.currentTarget })
-                        }
-                      }}
+                branchRows(
+                  branches,
+                  new Set(
+                    [...collapsedFolders]
+                      .filter((key) => key.startsWith(`${repo.path}:${group}:`))
+                      .map((key) => key.slice(`${repo.path}:${group}:`.length))
+                  ),
+                  query
+                ).map((row) => {
+                  if (row.kind === 'folder') {
+                    const key = `${repo.path}:${group}:${row.path}`
+                    const open = !!query || !collapsedFolders.has(key)
+
+                    return (
+                      <div
+                        className="git-branch-row git-branch-folder"
+                        key={`folder:${row.path}`}
+                        style={{ paddingLeft: row.depth * 18 }}
+                      >
+                        <Button
+                          title={row.path}
+                          aria-label={`${row.path} folder`}
+                          aria-expanded={open}
+                          onClick={() =>
+                            setCollapsedFolders((current) => {
+                              const next = new Set(current)
+                              if (next.has(key)) next.delete(key)
+                              else next.add(key)
+                              return next
+                            })
+                          }
+                        >
+                          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                          <Folder size={13} />
+                          <span>{row.label}</span>
+                        </Button>
+                      </div>
+                    )
+                  }
+
+                  const branch = row.branch
+
+                  return (
+                    <div
+                      className={`git-branch-row${(!branch.remote && workspace.switchingBranch ? workspace.switchingBranch === branch.name : branch.current) ? ' current' : ''}`}
+                      key={`branch:${branch.name}`}
+                      style={{ paddingLeft: row.depth * 18 }}
                     >
-                      {!remote && workspace.switchingBranch === branch.name ? (
-                        <LoaderCircle size={13} className="git-spinning" aria-label="Switching branch" />
-                      ) : (
-                        <GitBranch size={13} />
-                      )}
-                      <span>{branch.name}</span>
-                    </Button>
-                    {!remote && branch.upstreamGone && (
-                      <span
-                        className="git-branch-warning"
-                        aria-label="Tracked remote branch no longer exists"
-                        role="img"
-                        tabIndex={0}
+                      <Button
+                        style={{ paddingLeft: 23 }}
+                        aria-busy={!remote && workspace.switchingBranch === branch.name}
+                        title={`${branch.name} · ${branch.hash.slice(0, 7)}`}
+                        aria-pressed={!showingChanges && selected === branch.hash}
+                        onClick={() => onSelect(branch.hash)}
+                        onDoubleClick={() => {
+                          if (!remote && !branch.current && !workspace.busy) void workspace.checkout(branch.name)
+                        }}
+                        onContextMenu={(event) => {
+                          if (remote) return
+                          event.preventDefault()
+                          setTagMenu(null)
+                          setMenu({ branch, x: event.clientX, y: event.clientY, trigger: event.currentTarget })
+                        }}
+                        onKeyDown={(event) => {
+                          if (!remote && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) {
+                            event.preventDefault()
+                            const rect = event.currentTarget.getBoundingClientRect()
+                            setTagMenu(null)
+                            setMenu({ branch, x: rect.left, y: rect.bottom, trigger: event.currentTarget })
+                          }
+                        }}
                       >
-                        <TriangleAlert size={13} aria-hidden="true" />
-                        <span className="git-branch-warning-tooltip" role="tooltip">
-                          The tracked remote branch no longer exists.
+                        {!remote && workspace.switchingBranch === branch.name ? (
+                          <LoaderCircle size={13} className="git-spinning" aria-label="Switching branch" />
+                        ) : (
+                          <GitBranch size={13} />
+                        )}
+                        <span>{row.label}</span>
+                      </Button>
+                      {!remote && branch.upstreamGone && (
+                        <span
+                          className="git-branch-warning"
+                          aria-label="Tracked remote branch no longer exists"
+                          role="img"
+                          tabIndex={0}
+                        >
+                          <TriangleAlert size={13} aria-hidden="true" />
+                          <span className="git-branch-warning-tooltip" role="tooltip">
+                            The tracked remote branch no longer exists.
+                          </span>
                         </span>
-                      </span>
-                    )}
-                    {!remote && (branch.incomingCommits ?? 0) > 0 && (
-                      <span
-                        className="git-branch-incoming"
-                        title={`${branch.incomingCommits} commits to pull from origin/${branch.name}`}
-                        aria-label={`${branch.incomingCommits} incoming commits`}
-                      >
-                        {branch.incomingCommits}
-                        <ArrowDown size={12} />
-                      </span>
-                    )}
-                  </div>
-                ))}
+                      )}
+                      {!remote && (branch.incomingCommits ?? 0) > 0 && (
+                        <span
+                          className="git-branch-incoming"
+                          title={`${branch.incomingCommits} commits to pull from origin/${branch.name}`}
+                          aria-label={`${branch.incomingCommits} incoming commits`}
+                        >
+                          {branch.incomingCommits}
+                          <ArrowDown size={12} />
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
             </section>
           )
         })}

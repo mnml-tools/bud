@@ -419,44 +419,73 @@ export function useGitWorkspace(request: GitRequest) {
       setHistory(await loadHistory(request, repo.path, limit.current))
     })
 
-  const remoteAction = (action: 'fetch' | 'pull' | 'push') =>
-    run({ fetch: 'Fetching', pull: 'Pulling', push: 'Pushing' }[action], async () => {
-      if (!repository) return
-
-      const message = await request<string>('git_remote', {
-        path: repository.path,
-        action,
-        remote: action === 'push' ? remote : 'origin',
-        key: activeKey?.path ?? null
-      })
-      const repo = await openRepository(request, repository.path)
-      setRepository(repo)
-      setHistory(await loadHistory(request, repo.path, limit.current))
-      setNotice(message)
-    })
-
-  const branchAction = (branch: string, action: 'new' | 'delete' | 'merge', name?: string, deleteOrigin = false) =>
-    run({ new: 'Creating branch', delete: 'Deleting branch', merge: 'Merging branch' }[action], async () => {
+  const remoteAction = async (action: 'fetch' | 'pull' | 'pull-merge' | 'pull-rebase' | 'push') => {
+    let diverged = false
+    const success = await run(action === 'fetch' ? 'Fetching' : action === 'push' ? 'Pushing' : 'Pulling', async () => {
       if (!repository) return
 
       try {
-        setRepository(
-          await request<Repository>('git_branch_action', {
-            path: repository.path,
-            branch,
-            action,
-            name: name ?? null,
-            deleteOrigin,
-            key: activeKey?.path ?? null
-          })
-        )
-        setHistory(await loadHistory(request, repository.path, limit.current))
+        const message = await request<string>('git_remote', {
+          path: repository.path,
+          action,
+          remote: action === 'push' ? remote : 'origin',
+          key: activeKey?.path ?? null
+        })
+        setNotice(message)
       } catch (error) {
-        setRepository(await openRepository(request, repository.path))
-        setHistory(await loadHistory(request, repository.path, limit.current))
-        throw error
+        if (action === 'pull' && String(error).includes('PULL_DIVERGED:')) diverged = true
+        else throw error
+      } finally {
+        const repo = await openRepository(request, repository.path)
+        setRepository(repo)
+        setHistory(await loadHistory(request, repo.path, limit.current))
       }
     })
+
+    return diverged ? 'diverged' : success
+  }
+
+  const branchAction = async (
+    branch: string,
+    action: 'new' | 'delete' | 'force-delete' | 'merge',
+    name?: string,
+    deleteOrigin = false
+  ) => {
+    let unmerged = false
+    const success = await run(
+      { new: 'Creating branch', delete: 'Deleting branch', 'force-delete': 'Deleting branch', merge: 'Merging branch' }[
+        action
+      ],
+      async () => {
+        if (!repository) return
+
+        try {
+          setRepository(
+            await request<Repository>('git_branch_action', {
+              path: repository.path,
+              branch,
+              action,
+              name: name ?? null,
+              deleteOrigin,
+              key: activeKey?.path ?? null
+            })
+          )
+          setHistory(await loadHistory(request, repository.path, limit.current))
+        } catch (error) {
+          if (action === 'delete' && String(error).includes('BRANCH_NOT_MERGED:')) {
+            unmerged = true
+            return
+          }
+
+          setRepository(await openRepository(request, repository.path))
+          setHistory(await loadHistory(request, repository.path, limit.current))
+          throw error
+        }
+      }
+    )
+
+    return unmerged ? 'unmerged' : success
+  }
 
   const createTag = (hash: string, name: string, pushOrigin = false) =>
     run('Creating tag', async () => {

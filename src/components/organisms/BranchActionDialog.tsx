@@ -17,17 +17,25 @@ export function BranchActionDialog({
 }) {
   const [name, setName] = useState('')
   const [deleteOrigin, setDeleteOrigin] = useState(false)
+  const [forceDelete, setForceDelete] = useState(false)
   const title = { new: 'New branch', delete: 'Delete branch?', merge: 'Merge branch?' }[action]
   const busy = !!workspace.busy
 
   return (
-    <GitDialog title={title} busy={busy} onDismiss={onDismiss}>
+    <GitDialog title={forceDelete ? 'Force delete branch?' : title} busy={busy} onDismiss={onDismiss}>
       <form
         onSubmit={async (event) => {
           event.preventDefault()
           if (busy || (action === 'new' && !name.trim())) return
 
-          if (await workspace.branchAction(branch.name, action, name.trim(), deleteOrigin)) onDismiss()
+          const result = await workspace.branchAction(
+            branch.name,
+            forceDelete ? 'force-delete' : action,
+            name.trim(),
+            deleteOrigin
+          )
+          if (result === 'unmerged') setForceDelete(true)
+          else if (result) onDismiss()
         }}
       >
         {action === 'new' ? (
@@ -50,7 +58,16 @@ export function BranchActionDialog({
         ) : action === 'delete' ? (
           <>
             <p>
-              Delete local branch <strong>{branch.name}</strong>? Git will refuse if it contains unmerged commits.
+              {forceDelete ? (
+                <>
+                  Branch <strong>{branch.name}</strong> contains unmerged commits. Force deleting it removes the branch
+                  reference, and those commits may become unreachable. Delete it anyway?
+                </>
+              ) : (
+                <>
+                  Delete local branch <strong>{branch.name}</strong>?
+                </>
+              )}
             </p>
             {workspace.repository!.remotes.includes('origin') && (
               <label className="git-delete-origin-option">
@@ -78,7 +95,13 @@ export function BranchActionDialog({
             className={action === 'delete' ? 'git-discard-action' : 'primary'}
             disabled={busy || (action === 'new' && !name.trim())}
           >
-            {action === 'new' ? 'Create branch' : action === 'delete' ? 'Delete branch' : 'Merge branch'}
+            {action === 'new'
+              ? 'Create branch'
+              : action === 'delete'
+                ? forceDelete
+                  ? 'Force delete'
+                  : 'Delete branch'
+                : 'Merge branch'}
           </Button>
         </div>
       </form>

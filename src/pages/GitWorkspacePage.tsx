@@ -17,6 +17,7 @@ import { Button } from '../components/atoms/Button'
 import { GitDialog } from '../components/molecules/GitDialog'
 import { GitBranchSidebar } from '../components/organisms/GitBranchSidebar'
 import { CommitHistory } from '../components/organisms/CommitHistory'
+import { PullDivergedDialog } from '../components/organisms/PullDivergedDialog'
 import { RepositoryChanges } from '../components/organisms/RepositoryChanges'
 
 export function GitWorkspacePage({
@@ -33,6 +34,7 @@ export function GitWorkspacePage({
   const [selected, setSelected] = useState('')
   const [showingChanges, setShowingChanges] = useState(false)
   const [push, setPush] = useState(false)
+  const [pullDiverged, setPullDiverged] = useState(false)
   const filterRef = useRef<HTMLInputElement>(null)
   const disabled = !!workspace.busy
   const incomingCommits = repo.branches.find((branch) => branch.current)?.incomingCommits ?? 0
@@ -74,8 +76,10 @@ export function GitWorkspacePage({
           </Button>
           <Button
             disabled={disabled || !repo.remotes.includes('origin') || repo.currentBranch === 'Detached HEAD'}
-            title="Apply changes from origin to the current branch (fast-forward only)"
-            onClick={() => void workspace.remoteAction('pull')}
+            title="Apply changes from origin to the current branch"
+            onClick={async () => {
+              if ((await workspace.remoteAction('pull')) === 'diverged') setPullDiverged(true)
+            }}
           >
             <ArrowDownToLine size={13} />
             Pull
@@ -144,6 +148,7 @@ export function GitWorkspacePage({
           )}
         </div>
       </div>
+      {pullDiverged && <PullDivergedDialog workspace={workspace} onDismiss={() => setPullDiverged(false)} />}
       {push && (
         <GitDialog title="Push branch?" onDismiss={() => setPush(false)} busy={disabled}>
           <p>

@@ -548,11 +548,11 @@ export function useGitWorkspace(request: GitRequest) {
   const imageDiff = (file: string, staged: boolean) =>
     request<{ before: string | null; after: string | null }>('git_image_diff', { path: repository!.path, file, staged })
 
-  const commit = (message: string, description: string) =>
+  const commit = (message: string, description: string, skipHooks = false) =>
     run('Committing', async () => {
       if (!repository) return
 
-      const repo = await request<Repository>('git_commit', { path: repository.path, message, description })
+      const repo = await request<Repository>('git_commit', { path: repository.path, message, description, skipHooks })
       setRepository(repo)
       setHistory(await loadHistory(request, repo.path, limit.current))
       setNotice('Changes committed successfully.')

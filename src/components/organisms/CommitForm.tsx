@@ -21,7 +21,17 @@ export function CommitForm({ workspace, onOpenAiSettings }: { workspace: GitWork
   const [generating, setGenerating] = useState(false)
   const [generationError, setGenerationError] = useState('')
   const [suggestion, setSuggestion] = useState<{ message: string; description: string } | null>(null)
+  const [failedCommitKey, setFailedCommitKey] = useState<string | null>(null)
   const busy = !!workspace.busy || generating
+  const canCommit = !busy && stagedCount > 0 && !!draft.message.trim()
+
+  const commit = async (skipHooks = false) => {
+    if (!canCommit) return
+
+    const committed = await workspace.commit(draft.message, draft.description, skipHooks)
+    setFailedCommitKey(committed ? null : storageKey)
+    if (committed) setDraft({ message: '', description: '' })
+  }
 
   const generate = async () => {
     if (busy || !stagedCount) return
@@ -59,11 +69,9 @@ export function CommitForm({ workspace, onOpenAiSettings }: { workspace: GitWork
     <form
       className="git-commit-form"
       aria-label="Commit staged changes"
-      onSubmit={async (event) => {
+      onSubmit={(event) => {
         event.preventDefault()
-        if (busy || !stagedCount || !draft.message.trim()) return
-
-        if (await workspace.commit(draft.message, draft.description)) setDraft({ message: '', description: '' })
+        void commit()
       }}
     >
       <label>
@@ -132,10 +140,20 @@ export function CommitForm({ workspace, onOpenAiSettings }: { workspace: GitWork
         >
           <Settings2 size={13} />
         </Button>
-        <Button type="submit" className="primary" disabled={busy || !stagedCount || !draft.message.trim()}>
+        <Button type="submit" className="primary" disabled={!canCommit}>
           {workspace.busy === 'Committing' ? 'Committing…' : 'Commit'}
         </Button>
       </div>
+      {failedCommitKey === storageKey && workspace.error && (
+        <Button
+          type="button"
+          disabled={!canCommit}
+          title="Retry without running the pre-commit and commit-msg hooks"
+          onClick={() => void commit(true)}
+        >
+          Force commit (skip hooks)
+        </Button>
+      )}
     </form>
   )
 }

@@ -487,6 +487,7 @@ pub async fn git_commit(
     path: String,
     message: String,
     description: String,
+    skip_hooks: Option<bool>,
 ) -> Result<Repository, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let directory = root(&path)?;
@@ -497,7 +498,11 @@ pub async fn git_commit(
             return Err("Stage changes before committing.".into());
         }
         let mut cmd = command(Some(&directory), None)?;
-        cmd.args(["commit", "-m", message.trim()]);
+        cmd.arg("commit");
+        if skip_hooks == Some(true) {
+            cmd.arg("--no-verify");
+        }
+        cmd.args(["-m", message.trim()]);
         if !description.trim().is_empty() {
             cmd.args(["-m", description.trim()]);
         }
@@ -1236,7 +1241,7 @@ mod tests {
         git_hunk_action(path.clone(), file, false, 0, refreshed)
             .await
             .unwrap();
-        git_commit(path.clone(), "First change only".into(), "".into())
+        git_commit(path.clone(), "First change only".into(), "".into(), None)
             .await
             .unwrap();
         let committed = git(&temp, &["show", "HEAD:file with spaces.txt"]).unwrap();
@@ -1827,12 +1832,12 @@ mod tests {
         git(&temp, &["config", "user.name", "Bud Test"]).unwrap();
         git(&temp, &["config", "user.email", "bud@example.test"]).unwrap();
         let path = temp.to_string_lossy().into_owned();
-        assert!(git_commit(path.clone(), "Empty index".into(), "".into())
+        assert!(git_commit(path.clone(), "Empty index".into(), "".into(), None)
             .await
             .is_err());
         std::fs::write(temp.join("file.txt"), "staged\n").unwrap();
         git(&temp, &["add", "file.txt"]).unwrap();
-        assert!(git_commit(path.clone(), "   ".into(), "Details".into())
+        assert!(git_commit(path.clone(), "   ".into(), "Details".into(), None)
             .await
             .is_err());
         std::fs::write(temp.join("file.txt"), "unstaged\n").unwrap();
@@ -1841,6 +1846,7 @@ mod tests {
             path.clone(),
             "Initial commit".into(),
             "Description with details.".into(),
+            None,
         )
         .await
         .unwrap();
@@ -1854,7 +1860,7 @@ mod tests {
             .unwrap()
             .trim()
             .to_string();
-        let diff = git_commit_diff(path.clone(), hash).await.unwrap();
+        let diff = git_commit_diff(path.clone(), hash.clone()).await.unwrap();
         assert!(diff.contains("diff --git a/file.txt b/file.txt"));
         assert!(diff.contains("+staged"));
         assert!(!diff.contains("unstaged"));
@@ -1868,9 +1874,29 @@ mod tests {
             git(&temp, &["log", "-1", "--format=%B"]).unwrap().trim(),
             "Initial commit\n\nDescription with details."
         );
-        assert!(git_commit(path.clone(), "Nothing staged".into(), "".into())
+        assert!(git_commit(path.clone(), "Nothing staged".into(), "".into(), None)
             .await
             .is_err());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+
+            git(&temp, &["config", "core.hooksPath", ".git/hooks"]).unwrap();
+            let hook = temp.join(".git/hooks/pre-commit");
+            std::fs::create_dir_all(hook.parent().unwrap()).unwrap();
+            std::fs::write(&hook, "#!/bin/sh\necho 'Test hook rejected commit' >&2\nexit 1\n")
+                .unwrap();
+            std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+            git(&temp, &["add", "file.txt"]).unwrap();
+            let result = git_commit(path.clone(), "Retry commit".into(), "".into(), None).await;
+            assert!(matches!(result, Err(error) if error.contains("Test hook rejected commit")));
+            assert_eq!(git(&temp, &["rev-parse", "HEAD"]).unwrap().trim(), hash);
+
+            git_commit(path, "Retry commit".into(), "".into(), Some(true))
+                .await
+                .unwrap();
+            assert_eq!(git(&temp, &["show", "HEAD:file.txt"]).unwrap(), "unstaged\n");
+        }
         std::fs::remove_dir_all(temp).unwrap();
     }
 

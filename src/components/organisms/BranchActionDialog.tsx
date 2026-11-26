@@ -17,25 +17,28 @@ export function BranchActionDialog({
 }) {
   const [name, setName] = useState('')
   const [deleteOrigin, setDeleteOrigin] = useState(false)
-  const [forceDelete, setForceDelete] = useState(false)
+  const [deleteFailure, setDeleteFailure] = useState<'unmerged' | 'other' | null>(null)
   const title = { new: 'New branch', delete: 'Delete branch?', merge: 'Merge branch?' }[action]
   const busy = !!workspace.busy
+  const canForceDelete =
+    action === 'delete' &&
+    deleteFailure !== null &&
+    workspace.repository!.branches.some((item) => !item.remote && !item.current && item.name === branch.name)
+
+  const submit = async (force = false) => {
+    if (busy || (action === 'new' && !name.trim()) || (force && !canForceDelete)) return
+
+    const result = await workspace.branchAction(branch.name, force ? 'force-delete' : action, name.trim(), deleteOrigin)
+    if (result === true) onDismiss()
+    else if (action === 'delete' && !force) setDeleteFailure(result === 'unmerged' ? 'unmerged' : 'other')
+  }
 
   return (
-    <GitDialog title={forceDelete ? 'Force delete branch?' : title} busy={busy} onDismiss={onDismiss}>
+    <GitDialog title={title} busy={busy} onDismiss={onDismiss}>
       <form
-        onSubmit={async (event) => {
+        onSubmit={(event) => {
           event.preventDefault()
-          if (busy || (action === 'new' && !name.trim())) return
-
-          const result = await workspace.branchAction(
-            branch.name,
-            forceDelete ? 'force-delete' : action,
-            name.trim(),
-            deleteOrigin
-          )
-          if (result === 'unmerged') setForceDelete(true)
-          else if (result) onDismiss()
+          void submit()
         }}
       >
         {action === 'new' ? (
@@ -58,17 +61,14 @@ export function BranchActionDialog({
         ) : action === 'delete' ? (
           <>
             <p>
-              {forceDelete ? (
-                <>
-                  Branch <strong>{branch.name}</strong> contains unmerged commits. Force deleting it removes the branch
-                  reference, and those commits may become unreachable. Delete it anyway?
-                </>
-              ) : (
-                <>
-                  Delete local branch <strong>{branch.name}</strong>?
-                </>
-              )}
+              Delete local branch <strong>{branch.name}</strong>?
             </p>
+            {canForceDelete && (
+              <p role="alert">
+                {deleteFailure === 'unmerged' ? 'This branch contains unmerged commits. ' : ''}
+                Force deleting the local branch may make unmerged commits unreachable.
+              </p>
+            )}
             {workspace.repository!.remotes.includes('origin') && (
               <label className="git-delete-origin-option">
                 <input
@@ -95,14 +95,13 @@ export function BranchActionDialog({
             className={action === 'delete' ? 'git-discard-action' : 'primary'}
             disabled={busy || (action === 'new' && !name.trim())}
           >
-            {action === 'new'
-              ? 'Create branch'
-              : action === 'delete'
-                ? forceDelete
-                  ? 'Force delete'
-                  : 'Delete branch'
-                : 'Merge branch'}
+            {action === 'new' ? 'Create branch' : action === 'delete' ? 'Delete branch' : 'Merge branch'}
           </Button>
+          {canForceDelete && (
+            <Button type="button" className="git-discard-action" disabled={busy} onClick={() => void submit(true)}>
+              Force delete
+            </Button>
+          )}
         </div>
       </form>
     </GitDialog>

@@ -1,31 +1,33 @@
 :root {
   color-scheme: light;
-  --text: #2a2a2a;
+  --text: #1d2430;
   --background: #ffffff;
-  --border: #e0ded9;
-  --muted: #89867e;
-  --soft: #f7f6f3;
-  --hover: #eeece7;
-  --secondary: #777064;
-  --control-border: #c9c6bd;
-  --hover-strong: #e3e0d9;
-  --icon: #68645a;
-  --indicator: #858174;
-  --raised: #fcfbf9;
-  --faint: #aaa497;
-  --overlay: #2a2a2a25;
-  --shadow: #2a2a2a18;
+  --border: #e9edf2;
+  --muted: #626d7c;
+  --soft: #f4f6f9;
+  --hover: #eaf0f5;
+  --secondary: #546071;
+  --control-border: #dce3eb;
+  --hover-strong: #e0e8f0;
+  --icon: #536175;
+  --indicator: #68788d;
+  --raised: #ffffff;
+  --faint: #9aa6b5;
+  --overlay: #17233540;
+  --shadow: #1723351a;
   --notice-border: #c3b8ab;
   --notice-bg: #faf6f0;
   --notice-text: #6e5846;
-  --sidebar: #faf9f6;
-  --focus: #8b8374;
-  --neutral-selected: #eae7e0;
+  --sidebar: #f7f9fb;
+  --focus: #526981;
+  --neutral-selected: #e5ebf2;
   --selected: var(--neutral-selected);
+  --radius-control: 8px;
+  --radius-surface: 14px;
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --text: #e0ded9;
+  --text: #e9edf2;
   --background: #20201e;
   --border: #3c3b36;
   --muted: #aaa69c;
@@ -51,10 +53,19 @@
 :root {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   font-size: 12px;
+  font-weight: var(--weight-regular);
   font-synthesis: none;
   color: var(--text);
   background: var(--background);
   --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --weight-regular: 400;
+  --weight-medium: 500;
+}
+:root.linux {
+  font-family: 'Noto Sans', 'Adwaita Sans', 'DejaVu Sans', sans-serif;
+  --mono: 'Noto Sans Mono', 'DejaVu Sans Mono', 'Liberation Mono', monospace;
+  --weight-regular: 500;
+  --weight-medium: 600;
 }
 * {
   box-sizing: border-box;
@@ -73,15 +84,15 @@ input,
 select {
   font: inherit;
   color: inherit;
-  border-radius: 0;
+  border-radius: var(--radius-control);
 }
 button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 1px solid var(--border);
-  background: var(--background);
+  border: 1px solid transparent;
+  background: var(--soft);
   padding: 5px 9px;
   min-height: 26px;
   cursor: pointer;
@@ -98,11 +109,11 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 [role='button']:focus-visible {
-  outline: none;
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 .primary {
-  background: var(--hover);
-  border-color: var(--control-border);
+  background: var(--selected);
   color: var(--text);
 }
 .primary:hover {
@@ -114,7 +125,7 @@ header {
   flex-shrink: 0;
   padding: 0 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--soft);
+  background: var(--background);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -139,7 +150,7 @@ header {
 }
 .brand-note {
   font-size: 11px;
-  font-weight: 400;
+  font-weight: var(--weight-regular);
   color: var(--muted);
   border-left: 1px solid var(--border);
   padding-left: 9px;
@@ -157,6 +168,7 @@ header {
   width: 5px;
   height: 5px;
   background: var(--indicator);
+  border-radius: 50%;
 }
 .app,
 .workspace {
@@ -175,7 +187,7 @@ kbd {
 }
 h2 {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   margin: 0;
 }
 footer {
@@ -188,11 +200,11 @@ footer {
   border-top: 1px solid var(--border);
   background: var(--soft);
   color: var(--secondary);
-  font: 10px var(--mono);
+  font: var(--weight-regular) 10px var(--mono);
 }
 h3 {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   margin: 0;
   min-width: 140px;
 }
@@ -200,17 +212,18 @@ h3 {
   width: 490px;
   max-height: 95vh;
   overflow: auto;
-  border: 1px solid var(--faint);
+  border: 1px solid var(--border);
   background: var(--background);
-  box-shadow: 0 6px 24px var(--shadow);
+  box-shadow: 0 16px 48px var(--shadow);
+  border-radius: 18px;
 }
 .modal-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 12px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border);
-  background: var(--soft);
+  background: var(--background);
 }
 .modal-heading .eyebrow {
   display: none;
@@ -222,7 +235,7 @@ h3 {
   border: 0;
   background: transparent;
   min-height: 20px;
-  padding: 0;
+  padding: 4px;
 }
 .modal-heading > button svg {
   width: 14px;
@@ -258,6 +271,7 @@ h3 {
   color: var(--notice-text);
   font-size: 11px;
   overflow-wrap: anywhere;
+  border-radius: var(--radius-control);
 }
 .modal .error {
   margin: 12px 0 0;
@@ -283,22 +297,26 @@ aside {
   min-height: 32px;
   flex-shrink: 0;
   overflow-x: auto;
-  background: linear-gradient(var(--border), var(--border)) bottom / 100% 1px no-repeat var(--soft);
+  background: var(--soft);
+  gap: 4px;
+  padding: 4px 8px;
 }
 .tab {
   display: flex;
   align-items: center;
-  gap: 17px;
+  gap: 10px;
   padding: 0 10px;
-  border-right: 1px solid var(--border);
-  border-top: 1px solid transparent;
   color: var(--muted);
   flex-shrink: 0;
+  border-radius: var(--radius-control);
+}
+.tab:not(.active):hover {
+  background: var(--hover);
 }
 .tab.active {
   background: var(--background);
-  border-top-color: var(--focus);
   color: var(--text);
+  box-shadow: 0 1px 3px var(--shadow);
 }
 .tab button {
   min-height: 30px;
@@ -315,7 +333,7 @@ aside {
   background: var(--selected);
 }
 .eyebrow {
-  font: 10px var(--mono);
+  font: var(--weight-regular) 10px var(--mono);
   color: var(--muted);
 }
 @media (max-width: 800px) {
@@ -404,7 +422,10 @@ header .theme-toggle svg {
 }
 .view-switch {
   display: flex;
-  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--soft);
+  padding: 2px;
+  gap: 2px;
 }
 .view-switch button {
   flex: 1;
@@ -414,9 +435,6 @@ header .theme-toggle svg {
   background: transparent;
   font-size: 11px;
   color: var(--muted);
-}
-.view-switch button + button {
-  border-left: 1px solid var(--border);
 }
 .view-switch button:hover {
   background: var(--hover);
@@ -496,14 +514,6 @@ header .theme-toggle svg {
   --selected: color-mix(in srgb, var(--accent) 16%, var(--background));
 }
 
-:root[data-accent] :focus-visible {
-  outline: none;
-}
-
-button:focus-visible {
-  background: var(--hover);
-}
-
 .window-controls {
   display: flex;
   align-items: stretch;
@@ -556,26 +566,26 @@ button:focus-visible {
   height: 8px;
   overflow: hidden;
   border: 0;
-  border-radius: 0px;
+  border-radius: 999px;
   background: var(--border);
   accent-color: var(--accent);
 }
 .update-progress progress::-webkit-progress-bar {
   background: var(--border);
-  border-radius: 0px;
+  border-radius: 999px;
 }
 .update-progress progress::-webkit-progress-value {
   background: var(--accent);
-  border-radius: 0;
+  border-radius: 999px;
   transition: width 150ms ease;
 }
 .update-progress progress::-moz-progress-bar {
   background: var(--accent);
-  border-radius: 0px;
+  border-radius: 999px;
 }
 .update-progress span {
   color: var(--secondary);
-  font: 11px var(--mono);
+  font: var(--weight-regular) 11px var(--mono);
   font-variant-numeric: tabular-nums;
 }
 .repository-selector-menu {
@@ -586,6 +596,7 @@ button:focus-visible {
   border: 1px solid var(--border);
   background: var(--raised);
   box-shadow: 0 8px 28px var(--shadow);
+  border-radius: var(--radius-surface);
 }
 .repository-selector-menu-heading,
 .repository-selector-menu-footer {
@@ -638,7 +649,7 @@ button:focus-visible {
   font-weight: 600;
 }
 .repository-selector-details > span {
-  font: 10px var(--mono);
+  font: var(--weight-regular) 10px var(--mono);
   color: var(--muted);
 }
 .repository-selector-menu-footer {
@@ -815,9 +826,10 @@ button:focus-visible {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--border);
-  background: var(--background);
+  background: var(--soft);
   padding: 0 7px;
   color: var(--muted);
+  border-radius: var(--radius-control);
 }
 .git-branch-search input,
 .git-history-search input {
@@ -839,14 +851,13 @@ button:focus-visible {
   flex-shrink: 0;
   padding: 2px;
   margin-right: 10px;
-  border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-control);
   background: var(--soft);
 }
 .git-view-switch > button {
   font-weight: 600;
   border: 0;
-  border-radius: 0;
+  border-radius: 6px;
   background: transparent;
   color: var(--secondary);
   box-shadow: none;
@@ -987,17 +998,17 @@ button:focus-visible {
   width: 100%;
   padding: 0 12px 0 0;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
   background: transparent;
   min-height: 0;
   gap: 0;
-  font-weight: 400;
+  font-weight: var(--weight-regular);
+  border-radius: 0;
 }
 .git-commit-row:hover {
   background: color-mix(in srgb, var(--hover) 50%, var(--background));
 }
 .git-commit-row.selected {
-  background: color-mix(in srgb, var(--hover) 99%, black);
+  background: var(--selected);
 }
 .git-commit-row.above-head .git-commit-message > span:not(.git-ref) {
   color: var(--muted);
@@ -1016,27 +1027,26 @@ button:focus-visible {
   padding-right: 16px;
 }
 .git-commit-message > span:not(.git-ref) {
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .git-commit-message > code {
-  font: 10px var(--mono);
+  font: var(--weight-regular) 10px var(--mono);
   color: var(--muted);
   margin-left: auto;
 }
 .git-ref {
-  border: 1px solid color-mix(in srgb, currentColor 40%, var(--border));
-  padding: 1px 4px;
+  border: 0;
+  padding: 1px 6px;
   font-size: 10px;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   white-space: nowrap;
   background: color-mix(in srgb, currentColor 8%, transparent);
   flex-shrink: 0;
+  border-radius: 999px;
 }
 .git-ref-tag {
-  border-color: currentColor;
-  border-radius: 0;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1101,7 +1111,6 @@ button:focus-visible {
   background: var(--neutral-selected);
   padding: 8px 12px;
   font-weight: 600;
-  border-block: 1px solid var(--control-border);
   border-left: 3px solid var(--indicator);
 }
 .git-diff-lines .file-heading:not(:first-child) {
@@ -1111,7 +1120,7 @@ button:focus-visible {
   border-bottom: 1px solid var(--border);
 }
 .git-commit-details > code {
-  font: 10px var(--mono);
+  font: var(--weight-regular) 10px var(--mono);
   color: var(--secondary);
 }
 .git-commit-details > span {
@@ -1129,7 +1138,7 @@ button:focus-visible {
 }
 .git-history-empty h2 {
   font-size: 16px;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--text);
 }
 .git-history-empty p {
@@ -1195,7 +1204,7 @@ button:focus-visible {
   min-width: 0;
 }
 .git-key-row code {
-  font: 10px var(--mono);
+  font: var(--weight-regular) 10px var(--mono);
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1293,8 +1302,7 @@ footer > span:last-child {
   gap: 16px;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--soft);
+  background: var(--background);
 }
 .git-repositories-toolbar > span {
   margin-left: auto;
@@ -1326,6 +1334,9 @@ footer > span:last-child {
   grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
   grid-auto-rows: 170px;
   align-content: start;
+  gap: 12px;
+  padding: 12px;
+  background: var(--sidebar);
 }
 .git-repository-card {
   position: relative;
@@ -1333,7 +1344,9 @@ footer > span:last-child {
   border-bottom: 1px solid var(--border);
 }
 .git-repository-grid .git-repository-card {
-  border-right: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--background);
+  box-shadow: 0 1px 4px var(--shadow);
 }
 .git-repository-main {
   width: 100%;
@@ -1350,6 +1363,7 @@ footer > span:last-child {
   grid-template-rows: auto 1fr auto;
   align-items: start;
   gap: 14px 8px;
+  border-radius: var(--radius-surface);
 }
 .git-repository-grid .avatar {
   grid-row: 1;
@@ -1371,7 +1385,7 @@ footer > span:last-child {
 }
 .git-repository-info small {
   color: var(--muted);
-  font: 10px var(--mono);
+  font: var(--weight-regular) 10px var(--mono);
 }
 .git-repository-info > * {
   overflow: hidden;
@@ -1381,7 +1395,7 @@ footer > span:last-child {
 .git-repository-badge {
   color: var(--secondary);
   border: 1px solid var(--border);
-  font: 10px var(--mono);
+  font: var(--weight-regular) 10px var(--mono);
   padding: 2px 6px;
   width: max-content;
 }
@@ -1437,13 +1451,13 @@ footer > span:last-child {
   padding: 16px;
 }
 
-/* Keep every dropdown consistent with Bud's square, theme-aware controls. */
+/* Keep every dropdown consistent with Bud's theme-aware controls. */
 select,
 .git-dialog select,
 .git-remote-actions select {
   -webkit-appearance: none;
   appearance: none;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   border: 1px solid var(--control-border);
   background-color: var(--background);
   background-image:
@@ -1461,8 +1475,6 @@ select,
 }
 
 .git-ref-tag {
-  border-color: currentColor;
-  border-radius: 0;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -1607,7 +1619,7 @@ select,
   margin: 0;
 }
 .git-change-group h3 span {
-  font-weight: normal;
+  font-weight: var(--weight-regular);
   color: var(--muted);
 }
 .git-change-file,
@@ -1645,9 +1657,10 @@ select,
   margin-left: auto;
   background: color-mix(in srgb, var(--change-status) 32%, var(--background));
   color: color-mix(in srgb, var(--change-status) 65%, var(--text));
-  border: 1px solid color-mix(in srgb, var(--change-status) 55%, var(--background));
+  border: 0;
   font: 600 9px var(--mono);
   line-height: 1;
+  border-radius: 5px;
 }
 .git-change-file {
   color: var(--secondary);
@@ -1693,7 +1706,7 @@ select,
 .git-diff-lines {
   margin: 0;
   padding: 8px 0;
-  font: 11px/1.7 var(--mono);
+  font: var(--weight-regular) 11px/1.7 var(--mono);
   width: max-content;
   min-width: 100%;
   tab-size: 4;
@@ -1722,6 +1735,7 @@ select,
   background: var(--raised);
   border: 1px solid var(--border);
   box-shadow: 0 6px 20px var(--shadow);
+  border-radius: var(--radius-surface);
 }
 .git-file-context-menu button {
   display: flex;
@@ -1834,6 +1848,7 @@ html.changes-resizing * {
   background: var(--background);
   color: var(--text);
   font: inherit;
+  border-radius: var(--radius-control);
 }
 .git-commit-form textarea {
   resize: none;
@@ -1841,8 +1856,9 @@ html.changes-resizing * {
 }
 .git-commit-form input:focus,
 .git-commit-form textarea:focus {
-  outline: none;
+  outline: 2px solid var(--focus);
   border-color: var(--control-border);
+  outline-offset: -2px;
 }
 .git-commit-actions {
   display: flex;
@@ -1867,6 +1883,7 @@ html.changes-resizing * {
   overflow: hidden;
   pointer-events: none;
   animation: git-notice-enter 180ms ease-out;
+  border-radius: var(--radius-surface);
 }
 .git-notice-countdown {
   position: absolute;
@@ -1942,6 +1959,7 @@ html.changes-resizing * {
   padding: 12px;
   border: 1px solid var(--border);
   margin-bottom: 10px;
+  border-radius: var(--radius-surface);
 }
 .git-ai-suggestion p {
   white-space: pre-wrap;
@@ -2032,6 +2050,7 @@ html.changes-resizing * {
   background-color: var(--background);
   background-image: conic-gradient(var(--soft) 25%, transparent 0 50%, var(--soft) 0 75%, transparent 0);
   background-size: 16px 16px;
+  border-radius: var(--radius-surface);
 }
 .git-image-preview img {
   display: block;
@@ -2111,7 +2130,7 @@ html.changes-resizing * {
   padding-block: 4px;
 }
 .git-hunk-action {
-  font: 10px var(--mono);
+  font: var(--weight-regular) 10px var(--mono);
   min-height: 22px;
   padding: 2px 6px;
   flex-shrink: 0;
@@ -2241,7 +2260,7 @@ html.changes-resizing * {
   padding: 5px;
   height: auto;
   border: 1px solid var(--control-border);
-  border-radius: 0;
+  border-radius: var(--radius-surface);
   background: var(--background);
   overflow: hidden;
 }
@@ -2253,8 +2272,8 @@ html.changes-resizing * {
 .settings-theme-preview {
   display: flex;
   height: 90px;
-  border: 1px solid #e0ded9;
-  border-radius: 0;
+  border: 1px solid #e9edf2;
+  border-radius: var(--radius-control);
   background: #fff;
   overflow: hidden;
 }
@@ -2268,8 +2287,8 @@ html.changes-resizing * {
   gap: 8px;
   width: 28%;
   padding: 14px 8px;
-  border-right: 1px solid #e0ded9;
-  background: #f7f6f3;
+  border-right: 1px solid #e9edf2;
+  background: #f4f6f9;
 }
 [data-preview-mode='dark'] .settings-preview-sidebar {
   background: #262623;
@@ -2277,8 +2296,8 @@ html.changes-resizing * {
 }
 .settings-preview-sidebar i {
   height: 4px;
-  border-radius: 0;
-  background: #c9c6bd;
+  border-radius: 999px;
+  background: #dce3eb;
 }
 .settings-preview-sidebar i:first-child {
   background: var(--accent);
@@ -2290,7 +2309,7 @@ html.changes-resizing * {
   margin: 14px 10px;
 }
 .settings-preview-table i {
-  border-bottom: 1px solid #e0ded9;
+  border-bottom: 1px solid #e9edf2;
 }
 .settings-preview-table i:first-child {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
@@ -2304,7 +2323,7 @@ html.changes-resizing * {
   justify-content: space-between;
   padding: 10px 7px 5px;
   color: var(--text);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 .settings-theme-caption svg,
 .settings-accent-swatch svg {
@@ -2330,7 +2349,7 @@ html.changes-resizing * {
   gap: 9px;
   padding: 12px 8px;
   height: auto;
-  border-radius: 0;
+  border-radius: var(--radius-control);
   border: 1px solid var(--border);
   background: var(--background);
 }
@@ -2452,8 +2471,9 @@ html.changes-resizing * {
   border: 1px solid var(--control-border);
   background: var(--soft);
   color: var(--text);
-  font: 11px var(--mono);
+  font: var(--weight-regular) 11px var(--mono);
   white-space: nowrap;
+  border-radius: var(--radius-control);
 }
 .settings-ssh .git-hint {
   line-height: 1.6;
@@ -2473,6 +2493,7 @@ html.changes-resizing * {
   background: var(--raised);
   border: 1px solid var(--border);
   box-shadow: 0 8px 28px var(--shadow);
+  border-radius: var(--radius-surface);
 }
 .git-repository-switcher::backdrop {
   background: transparent;
@@ -2494,6 +2515,7 @@ html.changes-resizing * {
   border: 1px solid var(--control-border);
   background: var(--background);
   color: var(--muted);
+  border-radius: var(--radius-control);
 }
 .git-repository-switcher .git-switcher-search input {
   padding: 0;
@@ -2516,7 +2538,7 @@ html.changes-resizing * {
   grid-template-columns: minmax(0, 1fr) minmax(92px, auto) auto;
 }
 .settings-shortcut-row > button:first-of-type {
-  font: 11px var(--mono);
+  font: var(--weight-regular) 11px var(--mono);
   background: var(--soft);
 }
 .settings-shortcut-row > button[aria-pressed='true'] {
@@ -2568,7 +2590,7 @@ html.changes-resizing * {
   color: var(--text);
   box-shadow: 0 2px 8px #0002;
   font-size: 11px;
-  font-weight: 400;
+  font-weight: var(--weight-regular);
   line-height: 1.4;
   white-space: normal;
   pointer-events: none;
@@ -2597,7 +2619,7 @@ html.changes-resizing * {
 .git-startup-loading h1 {
   margin: 0;
   font-size: 20px;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 .git-startup-loading p {
   display: flex;
